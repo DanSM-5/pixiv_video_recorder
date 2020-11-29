@@ -30,7 +30,10 @@
       "matches": ["https://*.pixiv.net/*"],
       "exclude_matches": ["https://*.pixiv.net/"],
       "include_globs": ["https://*.pixiv.net/??/artworks/*"],
-      "js": ["pixiv-vid-recorder.js"],
+      "js": [
+        "Groover.js",
+        "pixiv-vid-recorder.js"
+      ],
       "css": ["css/recorder.css"]
     }
   ],
