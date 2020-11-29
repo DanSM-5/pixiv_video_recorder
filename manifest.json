@@ -1,6 +1,6 @@
 {
   "name": "Gif Recorder for pixiv",
-  "version": "1.0",
+  "version": "0.0.0.1",
   "description": "Record gifs from pixiv and save them as WebM videos",
   "background": {
     "scripts": ["background.js"],
@@ -30,7 +30,8 @@
       "matches": ["https://*.pixiv.net/*"],
       "exclude_matches": ["https://*.pixiv.net/"],
       "include_globs": ["https://*.pixiv.net/??/artworks/*"],
-      "js": ["pixiv-vid-recorder.js"]
+      "js": ["pixiv-vid-recorder.js"],
+      "css": ["css/recorder.css"]
     }
   ],
   "icons": {

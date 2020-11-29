@@ -18,12 +18,6 @@
  */
 (() => {
     /**
-     * @name videoElement
-     * @description reference to the video object to play the recorded video
-     */
-    let videoElement;
-
-    /**
      * @description posible states of the script
      */
     const STATES = {
@@ -37,11 +31,13 @@
      */
     const cleanUp = () => {
         let container = document.querySelector("#root #vid-container");
-        if (videoElement) {
-            videoElement = null;
-        }
-
         if (container) {
+            let videoElement = container.querySelector("video");
+            if (videoElement) {
+                videoElement.src = "";
+                videoElement.load();
+                videoElement = null;
+            }
             container.innerHTML = null;
             let parent = container.parentElement;
             parent.removeChild(container);
@@ -121,8 +117,37 @@
     const setRemoveButton = (container, button, video) => {
         container.children[0].appendChild(button);
         button.style.right = (((container.offsetWidth - video.videoWidth) / 2) + 10) + "px";
-        button.style.top = "20px";
+        button.classList.add("btn-close-recorded-top");
     };
+
+    /**
+     * @name createCheckBox
+     * @description Create a checkbox button
+     * @param {String} text Text to display inside the button
+     */
+    const createCheckBox = (text) => {
+        const checkContainer = document.createElement("div");
+        const checkButton = document.createElement("input");
+        const handler = () => {
+            if (checkButton.checked) {
+                checkButton.checked = false;
+                checkContainer.classList.remove("btn-video-info-checked");
+            } else {
+                checkButton.checked = true;
+                checkContainer.classList.add("btn-video-info-checked");
+            }
+        }
+
+        checkButton.type = "checkbox";
+        checkButton.classList.add("btn-video-no-click");
+
+        checkContainer.textContent = text ? `${text} ` : "Active ";
+        checkContainer.appendChild(checkButton);
+        checkContainer.classList.add("btn-video", "btn-video-info");
+        checkContainer.addEventListener("click", handler, false);
+
+        return checkContainer;
+    }
 
     /**
      * @name attachToDOM
@@ -134,63 +159,82 @@
     const attachToDOM = (blob, name, auto) => {
         // Container to attach to the document
         const container = document.createElement("div");
-        // Download link for video
+        // Open edit video site
         const link = document.createElement("a");
         // Root element of Pixiv
         const root = document.querySelector("#root div figcaption");
         // url of the recording in memory
-        var sourceUrl = URL.createObjectURL(blob);
+        const sourceUrl = URL.createObjectURL(blob);
         // The video tag
-        videoElement = document.createElement("video");
+        const videoElement = document.createElement("video");
         // "a" element used for automatic downloads
         const download = document.createElement("a");
         // Button for closing the recording
         const closeButton = document.createElement("button");
+        // Checkbox for looping the video
+        const loopButton = createCheckBox("Loop");
+        // Checkbox for showing video controls
+        const enableControlsButton = createCheckBox("Controls");
 
         /* videoElement */
         videoElement.src = sourceUrl;
         videoElement.addEventListener("canplay", () => {
             videoElement.play()
             // to set the button correctly, it is necessary to wait until video is playing
-            setRemoveButton(container, closeButton, videoElement);
+            if (!closeButton.classList.contains("btn-close-recorded-top")) {
+                setRemoveButton(container, closeButton, videoElement);
+            }
         }, false);
 
         // loop the video
-        videoElement.addEventListener("ended", () => videoElement.play(), false);
+        videoElement.addEventListener("ended", () => loopButton.children[0].checked && videoElement.play(), false);
+
+        /* loopButton */
+        loopButton.children[0].checked = true;
+        loopButton.classList.add("btn-video-info-checked");
+        loopButton.addEventListener("click", () => {
+            // play video if active and video is paused
+            if (loopButton.children[0].checked && videoElement.paused) {
+                videoElement.play()
+            }
+        }, false);
+
+        /* enableControlsButton */
+        enableControlsButton.addEventListener("click", () => {
+            if (enableControlsButton.children[0].checked) {
+                videoElement.controls = true;
+            } else {
+                videoElement.controls = false;
+            }
+        }, false);
 
         /* closeButton */
         closeButton.textContent = "X";
-        closeButton.style = `
-            float:right;
-            cursor:pointer;
-            color: #fff;
-            border: 1px solid #AEAEAE;
-            border-radius: 30px;
-            background: rgba(96, 95, 97, .7);
-            font-size: 31px;
-            font-weight: bold;
-            position: absolute;
-        `;    
+        closeButton.id = "btn-close-recorded";  
         closeButton.addEventListener("click", cleanUp, false);  
         
         /* link */
-        link.href = sourceUrl;
-        link.textContent = "=> Download video";
+        link.href = "https://ezgif.com/";
+        link.textContent = "Edit";
         link.target = "_blank";
+        link.classList.add("btn-video", "btn-video-info");
 
         /* download */
         download.href = sourceUrl;
         download.download = name;
-        download.style.display = "none";
+        download.classList.add("btn-video", "btn-video-info");
+        download.textContent = "Download";
         
         /* container */
         container.id = "vid-container"
-        container.style.position = "relative";
         container.innerHTML = "<div></div><div></div>";
-        container.style = "display: flex;justify-content: center;align-items: center;flex-direction: column; padding: 10px 0;";
         container.children[0].appendChild(videoElement);
-        container.children[1].appendChild(link);
+
+        container.children[1].classList.add("btn-video-area");
+        container.children[1].appendChild(enableControlsButton);
+        container.children[1].appendChild(loopButton);
         container.children[1].appendChild(download);
+        container.children[1].appendChild(link);
         
         /* root */
         root.prepend(container);

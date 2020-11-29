@@ -1,49 +1,8 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <style>
-      #main {
-        display: flex;
-        justify-content: center;
-        flex-direction: column;
-        flex-wrap: nowrap;
-        align-items: center;
-      }
-      .input-block {
-        margin: 10px 0;
-      }
-      #btn {
-        min-width: 100px;
-        min-height: 45px;
-        background-color: deepskyblue;
-        border-radius: 5px;
-        border: outset;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-      }
-      .btn-wrapper {
-        margin-top: 15px;
-      }
-      .error {
-        color: red;
-        margin: 0;
-      }
-      .err-des{
-        display: none;
-        margin: 0;
-      }
-      #error-area {
-        display: none;
-        margin-top: 20px;
-      }
-      #spinner {
-        display: none;
-        width: 30px;
-        height: 30px;
-      }
-    </style>
+    <meta http-equiv="Content-Type" content="text/html;charset=UTF-8">
+    <link rel="stylesheet" href="css/popup.css">
   </head>
   <body>
     <div id="main">
@@ -70,13 +29,13 @@
         </div>
       </div>
       <div id="auto" class="input-block">
-        <span class="description">Start download automatically </span>
+        <span class="description">Download automatically </span>
         <input type="checkbox" name="auto" id="autoInput">
       </div>
       <div class="btn-wrapper">
         <button id="btn">
           <img src="images/spinner.svg" alt="spinner" id="spinner"/>
-          <span>Download</span>
+          <span>Record!</span>
         </button>
       </div>
       <div id="error-area"></div>
