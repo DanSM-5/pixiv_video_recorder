@@ -33,7 +33,7 @@
      * @description remove the video container if any and freeze the memory
      */
     const cleanUp = () => {
-        let container = document.querySelector("#root #vid-container");
+        let container = document.querySelector("#vid-container");
         if (container) {
             let videoElement = container.querySelector("video");
             if (videoElement) {
@@ -54,9 +54,15 @@
      * 
      * @param {Function} failCb function callback if there is no canvas on the page
      */
-    const getCanvas = (failCb) => document.querySelector("#root canvas") 
-        ? document.querySelector("#root canvas") 
-        : failCb();
+    const getCanvas = (failCb) => {
+        const canvasCollection = document.querySelectorAll("canvas");
+
+        if (canvasCollection.length === 0) {
+            failCb();
+        }
+
+        return canvasCollection[canvasCollection.length - 1];
+    }
 
     /**
      * @name validateInputs
@@ -164,8 +170,6 @@
         const container = document.createElement("div");
         // Open edit video site
         const link = document.createElement("a");
-        // Root element of Pixiv
-        const root = document.querySelector("#root div figcaption");
         // url of the recording in memory
         const sourceUrl = URL.createObjectURL(blob);
         // The video tag
@@ -243,8 +247,8 @@
         container.children[1].appendChild(download);
         container.children[1].appendChild(link);
         
-        /* root */
-        root.prepend(container);
+        /* Add on top of the page */
+        document.children[0].prepend(container);
         
         // scroll to recording
         container.scrollIntoView({
