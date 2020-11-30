@@ -92,10 +92,10 @@ const validateInputs = (arr) => {
   }
 };
 
-const createStringCommand = (argsString) => `
+const createStringCommand = (command) => `
   try {
     let success;
-    window.startRecording([${argsString}]);
+    ${command}
     success = [1, true, "success"];
   } catch (e) {
     success = [0, false, e.desc, e.key];
@@ -121,7 +121,9 @@ const execRecorder = () => {
     const [time, name, quality, fps] = inputValues;
     saveConfig({time, name, quality, fps, auto});
     
-    const commandString = createStringCommand(`${time},\"${name}\",${quality},${fps},${auto}`);
+    const commandString = createStringCommand(
+      `window.startRecording([${time},\"${name}\",${quality},${fps},${auto}]);`
+    );
 
     execOnClient(commandString);
   } catch (error) {
@@ -134,8 +136,12 @@ const execRecorder = () => {
   }
 };
 
+const cancelProcess = () => {
+  sendMessage({ cancel: true }, response => console.log("response", response));
+};
+
 const toggle = () => {
-  if (document.querySelector('#btn').disabled) {
+  if (document.querySelector('#btn-record').disabled) {
     enable();
   } else {
     disable();
@@ -143,17 +149,21 @@ const toggle = () => {
 };
 
 const enable = () => {
-  const button = document.querySelector('#btn');
-  button.disabled = false;
-  button.children[0].style.display = "none";
-  button.children[1].style.display = "block";
+  const recordBtn = document.querySelector('#btn-record');
+  const cancelContainer = document.querySelector('#btn-cancel').parentElement;
+  recordBtn.disabled = false;
+  recordBtn.children[0].classList.add("hide");//.style.display = "none"; //SVG
+  recordBtn.children[1].classList.remove("hide");//.style.display = "block"; // Span
+  cancelContainer.classList.add("hide");
 };
 
 const disable = () => {
-  const button = document.querySelector('#btn');
-  button.disabled = true;
-  button.children[1].style.display = "none";
-  button.children[0].style.display = "block";
+  const recordBtn = document.querySelector('#btn-record');
+  const cancelContainer = document.querySelector('#btn-cancel').parentElement;
+  recordBtn.disabled = true;
+  recordBtn.children[1].classList.add("hide");//.style.display = "none"; // Span
+  recordBtn.children[0].classList.remove("hide");//.style.display = "block"; // SVG
+  cancelContainer.classList.remove("hide");
 };
 
 const applyStatus = status => {
@@ -192,7 +202,7 @@ const saveConfig = config => {
   })
 };
 
-const setListeners = () =>
+const setValidationListeners = () =>
   Array.from(document.querySelector("#inputs").children)
     .forEach(div =>
       div.children[1].addEventListener("blur", (e) => setCondition(e.target), false));
@@ -209,10 +219,13 @@ const setCondition = element => {
         checkValidPositiveNumber(value);
         checkInputInRange(value, "number", 0, 1);
         break;
-      case "fps":
       case "time":
+          checkValidPositiveNumber(value);
+          checkMinValue(value, 100);
+          break;
+      case "fps":
       default:
-        checkValidPositiveNumber(value);
+          checkValidPositiveNumber(value);
         break;
     }
 
@@ -222,6 +235,12 @@ const setCondition = element => {
     addErrorField(parent, error);
   }
 };
+
+const checkMinValue = (value, min) => {
+  if (value < min) {
+    throw `Input cannot be less than ${min} ms`;
+  }
+}
 
 const checkValidPositiveNumber = value => {
   const val = Number(value);
@@ -270,16 +289,29 @@ const evaluateInRange = (min, max, reference, msgIfLess, msgIfMore) => {
 };
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  if (request && request.success) {
+  if (!request) {
+    return;
+  }
+  if (request.success) {
+    enable();
+    sendResponse({ok: true});
+  }
+  if (request.cancel) {
     enable();
     sendResponse({ok: true});
   }
 });
 
 window.addEventListener("load", () => {
-  document.querySelector('#btn').addEventListener(
+  document.querySelector('#btn-record').addEventListener(
     "click",
     execRecorder,
+    false
+  );
+
+  document.querySelector('#btn-cancel').addEventListener(
+    "click",
+    cancelProcess,
     false
   );
 
@@ -287,14 +319,26 @@ window.addEventListener("load", () => {
     setConfig(data.config);
   });
 
-  setListeners();
+  setValidationListeners();
 }, false);
 
-
-chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
-  chrome.tabs.sendMessage(tabs[0].id, {status: true}, function(response) {
-    if (response && response.status) {
-      applyStatus(response.status);
-    }
+const sendMessage = (opts, responseCallback) => {
+  chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
+    chrome.tabs.sendMessage(tabs[0].id, opts, responseCallback);
   });
+};
+
+
+// chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
+//   chrome.tabs.sendMessage(tabs[0].id, {status: true}, response => {
+//     if (response && response.status) {
+//       applyStatus(response.status);
+//     }
+//   });
+// });
+
+sendMessage({status: true}, response => {
+  if (response && response.status) {
+    applyStatus(response.status);
+  }
 });

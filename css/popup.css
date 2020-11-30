@@ -8,11 +8,10 @@
 .input-block {
   margin: 10px 0;
 }
-#btn {
+
+.btn {
   min-width: 100px;
   min-height: 45px;
-  color: white;
-  background-color: deepskyblue;
   border-radius: 5px;
   border: outset;
   display: flex;
@@ -20,6 +19,21 @@
   justify-content: center;
   align-items: center;
 }
+
+.btn #spiner {
+  display: block;
+}
+
+#btn-record {
+  color: white;
+  background-color: deepskyblue;
+}
+
+#btn-cancel {
+  color: white;
+  background-color: rgb(216, 93, 93);
+}
+
 .btn-wrapper {
   margin-top: 15px;
 }
@@ -36,7 +50,9 @@
   margin-top: 20px;
 }
 #spinner {
-  display: none;
   width: 30px;
   height: 30px;
+}
+.hide {
+  display: none;
 }

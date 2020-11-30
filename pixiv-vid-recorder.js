@@ -22,7 +22,11 @@
     const STATES = {
         WORKING: "working",
         FREE: "free",
+        CANCEL: "cancel",
     };
+
+    const sendMessage = (opts, responseCallback) => 
+      chrome.runtime.sendMessage(opts, responseCallback);
 
     /**
      * @name cleanUp
@@ -175,10 +179,14 @@
         // Checkbox for showing video controls
         const enableControlsButton = createCheckBox("Controls");
 
+        const onPlayError = (e) => {
+            console.log("A problem happened when playing the video");
+        };
+
         /* videoElement */
         videoElement.src = sourceUrl;
         videoElement.addEventListener("canplay", () => {
-            videoElement.play()
+            videoElement.play().catch(onPlayError);
             // to set the button correctly, it is necessary to wait until video is playing
             if (!closeButton.classList.contains("btn-close-recorded-top")) {
                 setRemoveButton(container, closeButton, videoElement);
@@ -186,7 +194,7 @@
         }, false);
 
         // loop the video
-        videoElement.addEventListener("ended", () => loopButton.children[0].checked && videoElement.play(), false);
+        videoElement.addEventListener("ended", () => loopButton.children[0].checked && videoElement.play().catch(onPlayError), false);
 
         /* loopButton */
         loopButton.children[0].checked = true;
@@ -214,7 +222,7 @@
         
         /* link */
         link.href = "https://ezgif.com/";
-        link.textContent = "Edit";
+        link.textContent = "Make GIF";
         link.target = "_blank";
         link.classList.add("btn-video", "btn-video-info");
 
@@ -267,6 +275,13 @@
 
         // capture function works recursively 
         const capture = () => {
+            if (getStatus() === STATES.CANCEL) {
+                video = null;
+                sendMessage({ cancel: true }, () => {
+                    setTimeout(() => setStatus(STATES.FREE), 100);
+                });
+                return;
+            }
             if(video.timecode < time){ // recording time in miliseconds
                 setTimeout(capture, video.frameDelay);             
             }else{
@@ -305,32 +320,43 @@
 
         setStatus(STATES.WORKING);
 
-        // Validate inputs
-        validateInputs(time, name, quality, fps);
-        cleanUp();
-
-        captureCanvas(time, name, quality, fps, auto, () => {
+        const onFinish = () => {
             // notify end of process
-            chrome.runtime.sendMessage({ success: true }, function(response) {
+            sendMessage({ success: true }, function(response) {
                 if (response && response.ok) {
                     // Do cleanup jobs here if required
                 }
             });
             // set free status, so it can be called again
             setStatus(STATES.FREE);
-        });
+        };
+
+        // Validate inputs
+        validateInputs(time, name, quality, fps);
+        cleanUp();
+
+        captureCanvas(time, name, quality, fps, auto, onFinish);
     }
     
     window.startRecording = ([time, name, quality, fps, auto]) =>
         init(Number(time), name, Number(quality), Number(fps), auto);
 
-    console.log("pixiv-vid-recorder.js loaded on window!");
-
+        
     chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-        if (request && request.status) {
+        if (!request) {
+            return;
+        }
+        
+        if (request.status) {
             const response = { status: getStatus() ?? STATES.FREE };
             sendResponse(response);
         }
+        if (request.cancel) {
+            setStatus(STATES.CANCEL);
+            sendResponse({ status: getStatus(), ok: true });
+        }
     });
+
+    console.log("pixiv-vid-recorder.js loaded on window!");
 })()
     
