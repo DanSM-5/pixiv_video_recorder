@@ -20,7 +20,7 @@ chrome.runtime.onInstalled.addListener(function() {
             hostEquals: "www.pixiv.net",
             schemes: ['https'], 
             pathContains: "artworks"},
-          css: ["canvas"],
+          // css: ["canvas"], // TODO: giving issues to detect pages with cambas. Check later
         })
       ],
       actions: [
