@@ -3,11 +3,11 @@
   "version": "0.0.0.1",
   "description": "Record gifs from pixiv and save them as WebM videos",
   "background": {
-    "scripts": ["background.js"],
+    "scripts": ["/src/background/background.js"],
     "persistent": false
   },
   "page_action": {
-    "default_popup": "popup.html",
+    "default_popup": "/src/popup/popup.html",
     "default_icon": {
       "16": "images/icon_16x16.png",
       "32": "images/icon_32x32.png",
@@ -31,8 +31,10 @@
       "exclude_matches": ["https://*.pixiv.net/"],
       "include_globs": ["https://*.pixiv.net/??/artworks/*"],
       "js": [
-        "Groover.js",
-        "pixiv-vid-recorder.js"
+        "/lib/jQuery-2.1.1.js",
+        "/lib/webm-writer-0.3.0.js",
+        "/lib/ZipPlayer.js",
+        "/src/recorder/pixiv-vid-recorder.js"
       ],
       "css": ["css/recorder.css"]
     }
