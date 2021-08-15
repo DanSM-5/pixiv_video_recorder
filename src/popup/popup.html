@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta http-equiv="Content-Type" content="text/html;charset=UTF-8">
+    <link rel="stylesheet" href="../../css/popup.css">
+  </head>
+  <body>
+    <div id="main">
+      <div id="inputs">
+        <div id="time" class="input-block">
+          <span class="description">Time (in ms): </span>
+          <input type="text" name="time" id="timeInput">
+          <p class="error err-des"></p>
+        </div>
+        <div id="name" class="input-block">
+          <span class="description">Name: </span>
+          <input type="text" name="name" id="nameInput">
+          <p class="error err-des"></p>
+        </div>
+        <div id="quality" class="input-block">
+          <span class="description">Quality (e.g. 0.9): </span>
+          <input type="text" name="quality" id="qualityInput">
+          <p class="error err-des"></p>
+        </div>
+        <div id="fps" class="input-block">
+          <span class="description">FPS (e.g. 30): </span>
+          <input type="text" name="fps" id="fpsInput">
+          <p class="error err-des"></p>
+        </div>
+      </div>
+      <div id="auto" class="input-block">
+        <span class="description">Download automatically </span>
+        <input type="checkbox" name="auto" id="autoInput">
+      </div>
+      <div class="btn-wrapper">
+        <button id="btn-record" class="btn">
+          <img src="../../images/spinner.svg" alt="spinner" id="spinner"/>
+          <span>Record!</span>
+        </button>
+      </div>
+      <div class="btn-wrapper hide">
+        <button id="btn-cancel" class="btn">
+          <span>Cancel</span>
+        </button>
+      </div>
+      <div id="error-area"></div>
+    </div>
+    <script src="popup.js"></script>
+  </body>
+</html>
