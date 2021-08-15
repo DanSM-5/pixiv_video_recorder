@@ -3,10 +3,12 @@ chrome.runtime.onInstalled.addListener(function() {
   chrome.storage.sync.set({
     config: {
       time: 5000,
-      // name: "video",
-      quality: 0.7,
+      quality: 0.9,
       fps: 30,
-      auto: false
+      auto: false,
+    },
+    tab: {
+      selected: "download",
     }
   }, function() {
     console.log("Installed!");
