@@ -1,3 +1,12 @@
+:root {
+  --color-white: hsl(0, 0%, 100%);
+  --color-btn: hsl(194, 66%, 61%);
+  --color-btn-border: hsl(194, 67%, 56%);
+  --color-checked-btn: hsl(194, 66%, 51%);
+  --color-checked-border: hsl(194, 66%, 44%);
+  --color-info-hover: hsla(188, 78%, 41%, 0.5);
+}
+
 #vid-container {
   display: flex;
   position: relative;
@@ -10,12 +19,12 @@
 #btn-close-recorded {
   float:right;
   cursor:pointer;
-  color: #fff;
+  color: var(--color-white);
   border: 1px solid #AEAEAE;
   width: 40px;
   height: 40px;
   border-radius: 20px;
-  background: rgba(96, 95, 97, .7);
+  background: hsla(270, 1%, 38%, 0.7);
   font-size: 31px;
   font-weight: bold;
   position: absolute;
@@ -48,20 +57,20 @@
 }
 
 .btn-video-info {
-  color: #fff;
-  background-color: #5bc0de;
-  border-color: #46b8da;
+  color: var(--color-white);
+  background-color: var(--color-btn);
+  border-color: var(--color-btn-border);
   margin: 0 10px;
 }
 
 .btn-video-info-checked {
-  color: #fff;
-  background-color: #31b0d5;
-  border-color: #269abc;
+  color: var(--color-white);
+  background-color: var(--color-checked-btn);
+  border-color: var(--color-checked-border);
 }
 
 .btn-video-info:hover {
-  box-shadow: 0 0 0 0.2rem rgba(23,162,184,.5);
+  box-shadow: 0 0 0 0.2rem var(--color-info-hover);
 }
 
 .btn-video-area {
