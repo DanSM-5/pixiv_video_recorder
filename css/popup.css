@@ -1,10 +1,44 @@
+:root {
+  --color-white: hsl(0, 0%, 100%);
+  --color-blue-theme: hsl(194, 66%, 61%);
+}
+
+body {
+  margin: 0;
+}
+
+.tabs {
+  display: flex;
+  flex-direction: row;
+    border-bottom: 1px solid var(--color-blue-theme);
+    box-shadow: 0px 2px 2px #e2e2e2;
+}
+
+.tab {
+  box-sizing: border-box;
+  height: 10vh;
+  flex: 1;
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.tab.selected {
+  box-shadow: inset 0px 0px 5px #c1c1c1;
+  outline: none;
+  border-bottom: 2px solid var(--color-blue-theme);
+}
+
 #main {
   display: flex;
   justify-content: center;
   flex-direction: column;
   flex-wrap: nowrap;
   align-items: center;
+  margin: 8px;
 }
+
 .input-block {
   margin: 10px 0;
 }
@@ -25,12 +59,12 @@
 }
 
 #btn-record {
-  color: white;
-  background-color: deepskyblue;
+  color: var(--color-white);
+  background-color: var(--color-blue-theme);
 }
 
 #btn-cancel {
-  color: white;
+  color: var(--color-white);
   background-color: rgb(216, 93, 93);
 }
 

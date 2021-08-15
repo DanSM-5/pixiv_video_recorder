@@ -6,6 +6,32 @@ const MESSAGES = {
   FAILURE: "failure", 
 };
 
+const ACTIONS = {
+  DOWNLOAD: "download",
+  RECORD: "record",
+};
+
+/* TABS AND ACTIONS */
+const unsetTabs = () => {
+  Array.from(document.querySelectorAll(".tab"))
+    .forEach(tab => {
+      tab.classList.remove("selected")
+    });
+};
+
+const setActiveTab = (action, tab = null) => {
+  unsetTabs();
+  const activeTab = tab ? tab : document.querySelector(`.tab.${action}`);
+  activeTab.classList.add("selected");
+  saveTab({ selected: action });
+};
+
+const onTabClick = (evt) => {
+  const tab = evt.target;
+  const action = tab.dataset.action;
+  setActiveTab(action, tab);
+};
+
 const execOnClient = (command) => {
   chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
     console.log("Tabs:", tabs);
@@ -207,7 +233,13 @@ const setConfig = (config) => {
 const saveConfig = config => {
   chrome.storage.sync.set({ config }, function() {
     console.log("saved last configuration");
-  })
+  });
+};
+
+const saveTab = tab => {
+  chrome.storage.sync.set({ tab }, function() {
+    console.log("saved tab configuration");
+  });
 };
 
 const setValidationListeners = () =>
@@ -334,8 +366,17 @@ window.addEventListener("load", () => {
     false
   );
 
+  Array.from(document.querySelectorAll('.tab'))
+  .forEach(tab => {
+    tab.addEventListener('click', onTabClick, false);
+  });
+
   chrome.storage.sync.get('config', function(data) {
     setConfig(data.config);
+  });
+
+  chrome.storage.sync.get('tab', function(data) {
+    setActiveTab(data.tab.selected);
   });
   
   sendMessage({ message: MESSAGES.REQUEST_ID }, response => {
