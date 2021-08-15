@@ -1,0 +1,58 @@
+#main {
+  display: flex;
+  justify-content: center;
+  flex-direction: column;
+  flex-wrap: nowrap;
+  align-items: center;
+}
+.input-block {
+  margin: 10px 0;
+}
+
+.btn {
+  min-width: 100px;
+  min-height: 45px;
+  border-radius: 5px;
+  border: outset;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+.btn #spiner {
+  display: block;
+}
+
+#btn-record {
+  color: white;
+  background-color: deepskyblue;
+}
+
+#btn-cancel {
+  color: white;
+  background-color: rgb(216, 93, 93);
+}
+
+.btn-wrapper {
+  margin-top: 15px;
+}
+.error {
+  color: red;
+  margin: 0;
+}
+.err-des{
+  display: none;
+  margin: 0;
+}
+#error-area {
+  display: none;
+  margin-top: 20px;
+}
+#spinner {
+  width: 30px;
+  height: 30px;
+}
+.hide {
+  display: none;
+}

@@ -1,0 +1,77 @@
+#vid-container {
+  display: flex;
+  position: relative;
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
+  padding: 10px 0;
+}
+
+#btn-close-recorded {
+  float:right;
+  cursor:pointer;
+  color: #fff;
+  border: 1px solid #AEAEAE;
+  width: 40px;
+  height: 40px;
+  border-radius: 20px;
+  background: rgba(96, 95, 97, .7);
+  font-size: 31px;
+  font-weight: bold;
+  position: absolute;
+}
+
+.btn-video-no-click {
+  pointer-events: none;
+}
+
+.btn-video {
+  display: inline-block;
+  margin-bottom: 0;
+  font-weight: 400;
+  text-align: center;
+  white-space: nowrap;
+  vertical-align: middle;
+  -ms-touch-action: manipulation;
+  touch-action: manipulation;
+  cursor: pointer;
+  background-image: none;
+  border: 1px solid transparent;
+  padding: 6px 12px;
+  font-size: 14px;
+  line-height: 1.42857143;
+  border-radius: 4px;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+.btn-video-info {
+  color: #fff;
+  background-color: #5bc0de;
+  border-color: #46b8da;
+  margin: 0 10px;
+}
+
+.btn-video-info-checked {
+  color: #fff;
+  background-color: #31b0d5;
+  border-color: #269abc;
+}
+
+.btn-video-info:hover {
+  box-shadow: 0 0 0 0.2rem rgba(23,162,184,.5);
+}
+
+.btn-video-area {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 60px;
+  width: 80%;
+}
+
+.btn-close-recorded-top {
+  top: 20px;
+}

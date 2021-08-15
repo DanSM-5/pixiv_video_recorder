@@ -3,7 +3,7 @@ chrome.runtime.onInstalled.addListener(function() {
   chrome.storage.sync.set({
     config: {
       time: 5000,
-      name: "video",
+      // name: "video",
       quality: 0.7,
       fps: 30,
       auto: false
@@ -20,7 +20,7 @@ chrome.runtime.onInstalled.addListener(function() {
             hostEquals: "www.pixiv.net",
             schemes: ['https'], 
             pathContains: "artworks"},
-          css: ["canvas"],
+          // css: ["canvas"], // TODO: giving issues to detect pages with cambas. Check later
         })
       ],
       actions: [
