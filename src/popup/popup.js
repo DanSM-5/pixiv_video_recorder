@@ -6,24 +6,100 @@ const MESSAGES = {
   FAILURE: "failure", 
 };
 
+const STATES = {
+  WORKING: "working",
+  FREE: "free",
+  CANCEL: "cancel",
+};
+
+const STORAGE = {
+  CONFIG: "config",
+  TAB: "tab",
+};
+
 const ACTIONS = {
   DOWNLOAD: "download",
   RECORD: "record",
 };
 
+const ERROR_NAMES = {
+  time: "Time is empty",
+  name: "Name is empty",
+  quality: "Quality is empty",
+  fps: "FPS is empty"
+};
+
+const INPUT_TYPES = {
+  TEXT: "text",
+  CHECKBOX: "checkbox",
+};
+
+const CLASSNAMES = {
+  HIDE: "hide",
+  SELECTED: "selected",
+  TAB: "tab",
+  TABS: "tabs",
+  RED_BORDER: "red-border",
+};
+
+const ERROR_PREFIX = "__error";
+const DISCARD = "_";
+
+const inputFields = {
+  name: {
+    name: "name",
+    validation: false
+  },
+  quality: {
+    name: "quality",
+    validation: false
+  },
+  time: {
+    name: "time",
+    validation: false
+  },
+  fps: {
+    name: "fps",
+    validation: false
+  },
+};
+
+const activeFields = {
+  [ACTIONS.DOWNLOAD]: [
+    inputFields.name.name,
+    inputFields.quality.name, 
+  ],
+  [ACTIONS.RECORD]: [
+    inputFields.name.name,
+    inputFields.quality.name, 
+    inputFields.time.name,
+    inputFields.fps.name,
+  ],
+};
+
+const prefixRegexp = new RegExp(`^${ERROR_PREFIX}`);
+
 /* TABS AND ACTIONS */
+const getActiveTab = () => {
+  return getElement(`.${CLASSNAMES.TAB}.${CLASSNAMES.SELECTED}`);
+};
+
 const unsetTabs = () => {
-  Array.from(document.querySelectorAll(".tab"))
+  Array.from(document.querySelectorAll(`.${CLASSNAMES.TAB}`))
     .forEach(tab => {
-      tab.classList.remove("selected")
+      tab.classList.remove(CLASSNAMES.SELECTED)
     });
 };
 
 const setActiveTab = (action, tab = null) => {
   unsetTabs();
-  const activeTab = tab ? tab : document.querySelector(`.tab.${action}`);
-  activeTab.classList.add("selected");
+  const activeTab = tab ? tab : getElement(`.${CLASSNAMES.TAB}.${action}`);
+  const label = getElement('#btn-record .label');
+  activeTab.classList.add(CLASSNAMES.SELECTED);
+  label.textContent = `${action}!`
   saveTab({ selected: action });
+  disableFields();
+  enableFileds(activeFields[action]);
 };
 
 const onTabClick = (evt) => {
@@ -31,6 +107,24 @@ const onTabClick = (evt) => {
   const action = tab.dataset.action;
   setActiveTab(action, tab);
 };
+
+const enableFileds = (fielsArr) => {
+  fielsArr.forEach(field => {
+    inputFields[field].validation = true;
+    getElement(`#${field}`).classList.remove(CLASSNAMES.HIDE);
+  });
+};
+
+const disableFields = () => {
+  Object.values(inputFields)
+    .forEach(obj => {
+      obj.validation = false;
+      getElement(`#${obj.name}`).classList.add(CLASSNAMES.HIDE);
+    });
+};
+
+const getElement = (cssQuery) =>
+ document.querySelector(cssQuery);
 
 const execOnClient = (command) => {
   chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
@@ -58,7 +152,7 @@ const validateResults = (results) => {
     openErrorArea([message]);
     if (ERROR_NAMES[key]) {
       addErrorField(
-        document.querySelector(`#inputs #${key}`),
+        getElement(`#inputs #${key}`),
         ERROR_NAMES[key]
       );
     }
@@ -69,53 +163,50 @@ const addError = (target, description) =>
   target.innerHTML += `<p class="error">${description}</p>`;
 
 const addErrorField = (target, error) => {
-  target.children[2].style.display = "block";
+  // target.children[2].style.display = "block";
+  target.children[2].classList.remove(CLASSNAMES.HIDE);
   target.children[2].textContent = error;
-  target.children[1].style.borderColor = "red";
+  // target.children[1].style.borderColor = "red";
+  target.children[1].classList.add(CLASSNAMES.RED_BORDER);
 };
 const clearErrorField = (target) => {
-  target.children[2].style.display = "none";
+  // target.children[2].style.display = "none";
+  target.children[2].classList.add(CLASSNAMES.HIDE);
   target.children[2].textContent = "";
-  target.children[1].style.borderColor = "";
+  // target.children[1].style.borderColor = "";
+  target.children[1].classList.remove(CLASSNAMES.RED_BORDER);
 };
 
 const openErrorArea = arr => {
   const errorArea = getErrorArea();
-  errorArea.style.display = "block";
+  // errorArea.style.display = "block";
+  errorArea.classList.remove(CLASSNAMES.HIDE);
   arr.forEach(error => addError(errorArea, error));
 };
 
 const closeErrorArea = () => {
   const errorArea = getErrorArea();
-  errorArea.style.display = "none";
+  // errorArea.style.display = "none";
+  errorArea.classList.add(CLASSNAMES.HIDE);
 };
 
 const getErrorArea = () => {
-  const errorArea = document.getElementById("error-area");
+  const errorArea = getElement("#error-area");
   errorArea.innerHTML = null;
   return errorArea;
-};
-
-const ERROR_NAMES = {
-  time: "Time is empty",
-  name: "Name is empty",
-  quality: "Quality is empty",
-  fps: "FPS is empty"
 };
 
 const validateInputs = (arr) => {
   const errors = [];
   let error = false;
   arr.forEach(value => {
-    if (value.indexOf("__error") > -1) {
-      if (!error) {
-        error = true;
-      }
+    if (prefixRegexp.test(value)) {
+      error = true;
       const id = value.split("-")[1];
       errors.push(ERROR_NAMES[id]);
 
       addErrorField(
-        document.querySelector(`#inputs #${id}`),
+        getElement(`#inputs #${id}`),
         ERROR_NAMES[id]
       );
     }
@@ -128,6 +219,7 @@ const validateInputs = (arr) => {
 
 const createStringCommand = (command) => `
   try {
+    console.log("Message received");
     let success;
     ${command}
     success = [1, true, "success"];
@@ -141,24 +233,58 @@ const execRecorder = () => {
   toggle();
 
   try {
-  const inputValues = Array.from(document.querySelector("#inputs").children)
-    .map(div => { 
-      if (div.children[2].style.display === "block") {
-        throw "There are errors in the form";
-      }
-      return div.children[1].value === "" ? `__error-${div.id}` : encodeURIComponent(div.children[1].value);
-    });
-  
-    validateInputs(inputValues);
+    const inputValues = Array.from(getElement("#inputs").children)
+      .map(div => { 
+        const inputElement = div.children[1];
+        const errorMessage = div.children[2];
 
-    const auto = document.querySelector("#autoInput").checked;
-    const [time, name, quality, fps] = inputValues;
-    saveConfig({time, quality, fps, auto});
+        // validate if active
+        if (inputFields[div.id].validation) { 
+          if (!errorMessage.classList.contains(CLASSNAMES.HIDE)) {
+            throw "There are errors in the form";
+          }
+          return inputElement.value === "" ? `${ERROR_PREFIX}-${div.id}` : encodeURIComponent(inputElement.value);
+        }
+
+        return null;
+      });
     
+    const auto = getElement("#autoInput").checked;
+    const hideCanvas = getElement("#hideCanvasInput").checked;
+    const action = getActiveTab().dataset.action;
+    const [ time, name, quality, fps ] = inputValues;
+    let validateInputsArray;
+    let config;
+
+    switch (action) {
+      case ACTIONS.DOWNLOAD:
+        validateInputsArray = [ name, quality ];
+        config = { quality, auto, hideCanvas };
+        break;
+      case ACTIONS.RECORD:
+        validateInputsArray = [ time, name, quality, fps ];
+        config = { time, quality, fps, auto, hideCanvas };
+        break;
+      default:
+        break;
+    }
+  
+    validateInputs(validateInputsArray);
+    saveConfig(config);
+
     const commandString = createStringCommand(
-      `window.startRecording([${time},\"${name}\",${quality},${fps},${auto}]);`
+      `window.startRecording({
+        ${inputFields.time.name}: ${time},
+        ${inputFields.name.name}: ${name ? `\"${name}\"` : "\"\""},
+        ${inputFields.quality.name}: ${quality},
+        ${inputFields.fps.name}: ${fps},
+        auto: ${auto},
+        action: \"${action}\",
+        hideCanvas: ${hideCanvas},
+      });`
     );
 
+    console.log(commandString);
     execOnClient(commandString);
   } catch (error) {
     toggle();
@@ -175,7 +301,7 @@ const cancelProcess = () => {
 };
 
 const toggle = () => {
-  if (document.querySelector('#btn-record').disabled) {
+  if (getElement('#btn-record').disabled) {
     enable();
   } else {
     disable();
@@ -183,32 +309,34 @@ const toggle = () => {
 };
 
 const enable = () => {
-  const recordBtn = document.querySelector('#btn-record');
-  const cancelContainer = document.querySelector('#btn-cancel').parentElement;
+  const recordBtn = getElement('#btn-record');
+  const cancelContainer = getElement('#btn-cancel').parentElement;
+  const hide = CLASSNAMES.HIDE;
   recordBtn.disabled = false;
-  recordBtn.children[0].classList.add("hide");//.style.display = "none"; //SVG
-  recordBtn.children[1].classList.remove("hide");//.style.display = "block"; // Span
-  cancelContainer.classList.add("hide");
+  recordBtn.children[0].classList.add(hide); //SVG
+  recordBtn.children[1].classList.remove(hide); // Span
+  cancelContainer.classList.add(hide);
 };
 
 const disable = () => {
-  const recordBtn = document.querySelector('#btn-record');
-  const cancelContainer = document.querySelector('#btn-cancel').parentElement;
+  const recordBtn = getElement('#btn-record');
+  const cancelContainer = getElement('#btn-cancel').parentElement;
+  const hide = CLASSNAMES.HIDE;
   recordBtn.disabled = true;
-  recordBtn.children[1].classList.add("hide");//.style.display = "none"; // Span
-  recordBtn.children[0].classList.remove("hide");//.style.display = "block"; // SVG
-  cancelContainer.classList.remove("hide");
+  recordBtn.children[0].classList.remove(hide); // SVG
+  recordBtn.children[1].classList.add(hide); // Span
+  cancelContainer.classList.remove(hide);
 };
 
 const applyStatus = status => {
   switch (status) {
-    case "working":
+    case STATES.WORKING:
       disable();
       break;
-    case "free":
+    case STATES.FREE:
       enable();
       break;
-    default:
+    default: // probably no response if it just open
       enable();
       break;
   };
@@ -216,12 +344,12 @@ const applyStatus = status => {
 
 const setConfig = (config) => {
   Object.keys(config).forEach(key => {
-    const input = document.querySelector(`#${key}Input`);
+    const input = getElement(`#${key}Input`);
     switch (input.type) {
-      case "text":
+      case INPUT_TYPES.TEXT:
         input.value = config[key];
         break;
-      case "checkbox":
+      case INPUT_TYPES.CHECKBOX:
         input.checked = config[key];
         break;
       default:
@@ -230,43 +358,35 @@ const setConfig = (config) => {
   });
 };
 
-const saveConfig = config => {
-  chrome.storage.sync.set({ config }, function() {
-    console.log("saved last configuration");
-  });
-};
-
-const saveTab = tab => {
-  chrome.storage.sync.set({ tab }, function() {
-    console.log("saved tab configuration");
-  });
-};
-
 const setValidationListeners = () =>
-  Array.from(document.querySelector("#inputs").children)
+  Array.from(getElement("#inputs").children)
     .forEach(div =>
       div.children[1].addEventListener("blur", (e) => setCondition(e.target), false));
 
 const setCondition = element => {
   const value = element.value;
   const parent = element.parentElement;
+  const name = element.name;
+  if (!inputFields[name].validation) {
+    return; // disable validation for unused fields
+  }
   try {
-    switch (element.name) {
-      case "name":
+    switch (name) {
+      case inputFields.name.name:
         checkInputInRange(value, "string", 1, 150);
         break;
-      case "quality":
+      case inputFields.quality.name:
         checkValidPositiveNumber(value);
         checkInputInRange(value, "number", 0, 1);
         break;
-      case "time":
-          checkValidPositiveNumber(value);
-          checkMinValue(value, 100);
-          break;
-      case "fps":
-      default:
-          checkValidPositiveNumber(value);
+      case inputFields.time.name:
+        checkValidPositiveNumber(value);
+        checkMinValue(value, 100);
         break;
+      case inputFields.fps.name:
+      default:
+        checkValidPositiveNumber(value);
+      break;
     }
 
     checkNoEmptyInput(value);
@@ -328,6 +448,35 @@ const evaluateInRange = (min, max, reference, msgIfLess, msgIfMore) => {
   }
 };
 
+const mergeAndSave = (type, newContent, cb) => {
+  getStoraged(type, (data) => {
+    // merge saved with new to avoid losing keys
+    const objectToStore = {
+      [type]: {
+        ...data[type],
+        ...newContent,
+    }};
+    chrome.storage.sync.set(objectToStore, cb);
+  });
+};
+
+/* STORAGE */
+const saveConfig = config => {
+  mergeAndSave(STORAGE.CONFIG, config, () => {
+    console.log("saved last configuration");
+  });
+};
+
+const saveTab = tab => {
+  mergeAndSave(STORAGE.TAB, tab, () => {
+    console.log("saved tab configuration");
+  });
+};
+
+const getStoraged = (key, cb) => {
+  chrome.storage.sync.get(key, cb);
+};
+
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (!request) {
     return;
@@ -354,28 +503,28 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 });
 
 window.addEventListener("load", () => {
-  document.querySelector('#btn-record').addEventListener(
+  getElement('#btn-record').addEventListener(
     "click",
     execRecorder,
     false
   );
 
-  document.querySelector('#btn-cancel').addEventListener(
+  getElement('#btn-cancel').addEventListener(
     "click",
     cancelProcess,
     false
   );
 
   Array.from(document.querySelectorAll('.tab'))
-  .forEach(tab => {
-    tab.addEventListener('click', onTabClick, false);
-  });
+    .forEach(tab => {
+      tab.addEventListener('click', onTabClick, false);
+    });
 
-  chrome.storage.sync.get('config', function(data) {
+  getStoraged(STORAGE.CONFIG, function(data) {
     setConfig(data.config);
   });
 
-  chrome.storage.sync.get('tab', function(data) {
+  getStoraged(STORAGE.TAB, function(data) {
     setActiveTab(data.tab.selected);
   });
   
@@ -394,17 +543,10 @@ const sendMessage = (opts, responseCallback) => {
   });
 };
 
-
-// chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
-//   chrome.tabs.sendMessage(tabs[0].id, {status: true}, response => {
-//     if (response && response.status) {
-//       applyStatus(response.status);
-//     }
-//   });
-// });
-
 sendMessage({ message: MESSAGES.REQUEST_STATUS }, response => {
   if (response && response.status) {
     applyStatus(response.status);
+  } else {
+    response && console.log(response);
   }
 });
