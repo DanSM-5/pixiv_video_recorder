@@ -78,6 +78,58 @@
         return canvasCollection[canvasCollection.length - 1];
     }
 
+    const hidePageCanvas = () => {
+        const canvasCollection = document.querySelectorAll("canvas");
+        const canvasButtons = document.querySelectorAll("canvas + button");
+
+        if (canvasCollection.length === 0) {
+            console.log("Didn't found :(");
+            return;
+        }
+
+        const zipPlayer = getZipPlayer();
+        const canvas = zipPlayer && zipPlayer.getCanvas() || null;
+
+        Array.from(canvasCollection)
+            .forEach(cv => {
+                if (cv !== canvas) {
+                    cv.style.display = "none";
+                }
+            });
+
+        Array.from(canvasButtons)
+            .forEach(button => {
+                // hopefully it will stop the player and not activate it 😓
+                button.click();
+            });
+    };
+
+    const showPageCanvas = () => {
+        const canvasCollection = document.querySelectorAll("canvas");
+        const canvasButtons = document.querySelectorAll("canvas + button");
+
+        if (canvasCollection.length === 0) {
+            console.log("Didn't found :(");
+            return;
+        }
+
+        const zipPlayer = getZipPlayer();
+        const canvas = zipPlayer && zipPlayer.getCanvas() || null;
+
+        Array.from(canvasCollection)
+            .forEach(cv => {
+                if (cv !== canvas) {
+                    cv.style.display = "block";
+                }
+            });
+
+        Array.from(canvasButtons)
+            .forEach(button => {
+                // bring it back to its previous state
+                button.click();
+            });
+    };
+
     /**
      * @name validateInputsForDownload
      * @description validate the inputs sent by content script
@@ -469,10 +521,12 @@
         }
     };
 
-    const recordGif = async (time, name, quality, fps, auto) => {
+    const recordGif = async (time, name, quality, fps, auto, onFinishCb) => {
         const zipPlayer = getZipPlayer();
+        const canvas = zipPlayer.getCanvas();
+        const frameDelay = 1000 / fps;
+        let timecode = 0;
         zipPlayer.setCancelCheck(getCancelPredicate());
-
         await prepare(zipPlayer);
 
         const video = new WebMWriter({
@@ -489,22 +543,43 @@
                                         // If not specified this defaults to the same value as `quality`.
         });
 
-        zipPlayer.setCaptureFrame((canvas) => video.addFrame(canvas));
+        // Disable cancel on ZipPlayer as it will be manage by the capture function
+        zipPlayer.resetCancelCheck();
 
-        try {
-            setTimeout(async () => {
+        // capture function works recursively 
+        const capture = async () => {
+            if (getStatus() === STATES.CANCEL) {
                 zipPlayer.pause();
                 zipPlayer._reset();
-                const webMBlob = await video.complete();
-                attachToDOM(webMBlob, name, auto);
+                sendMessage({ message: MESSAGES.CANCEL }, () => {
+                    setTimeout(() => setStatus(STATES.FREE), 100);
+                });
                 onFinishCb(true);
-            }, time);
-            zipPlayer.record();
-        } catch (error) {
-            zipPlayer._reset();
-            console.log("Error: ", error);
-            onFinishCb(false);
-        }
+                return;
+            }
+            if(timecode < time){ // recording time in miliseconds
+                setTimeout(capture, frameDelay);
+            }else{
+                try {
+                    video.addFrame(canvas); // TODO: add last frame?
+                    zipPlayer.pause();
+                    zipPlayer._reset();
+                    const webMBlob = await video.complete();
+                    attachToDOM(webMBlob, name, auto);
+                    onFinishCb(true);
+                    return;
+                } catch (error) {
+                    onFinishCb(false);
+                    return;
+                }
+            }
+
+            timecode += frameDelay;
+            video.addFrame(canvas); // Add current canvas frame
+        };
+
+        zipPlayer.record();
+        setTimeout(capture, 0);
     };
 
     /**
@@ -517,7 +592,15 @@
      * @param {Number} _fps The framerate of the recording
      * @param {Boolean} _auto Start download automatically
      */
-    function init (_time, _name, _quality = 0.8, _fps, _auto = false, action = ACTIONS.DOWNLOAD) {
+    function init (
+        _time,
+        _name,
+        _quality = 0.9,
+        _fps,
+        _auto = false,
+        action = ACTIONS.DOWNLOAD,
+        hideCanvas = false
+    ) {
         const time = _time;
         const name = _name || getAssetId(); // Placed into the Mux and Write Application Name fields of the WebM header
         const quality = _quality; // good quality 1 Best < 0.7 ok to poor
@@ -537,6 +620,10 @@
             });
             // set free status, so it can be called again
             setStatus(STATES.FREE);
+
+            if (hideCanvas) {
+                showPageCanvas();
+            }
         };
 
         // Validate inputs
@@ -546,6 +633,10 @@
             flushPlayerData();
         }
 
+        if (hideCanvas) {
+            hidePageCanvas();
+        }
+
         let next;
 
         switch (action) {
@@ -553,6 +644,8 @@
                 next = () => downloadGif(name, quality, auto, onFinish);
                 break;
             case ACTIONS.RECORD:
+                next = () => recordGif(time, name, quality, fps, auto, onFinish);
+                break;
             default:
                 break;
         }
@@ -589,8 +682,17 @@
         id: null,
     };
     
-    window.startRecording = ([time, name, quality, fps, auto]) =>
-        init(getNumber(time), name, getNumber(quality), getNumber(fps), auto);
+    window.startRecording = ({
+        time = null,
+        name = "",
+        quality = null,
+        fps = null,
+        auto,
+        action,
+        hideCanvas,
+    }) => {
+        init(getNumber(time), name, getNumber(quality), getNumber(fps), auto, action, hideCanvas);
+    };
 
         
     chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
@@ -617,16 +719,6 @@
             default:
                 break;
         }
-        
-        // if (request.status) {
-        //     const response = { status: getStatus() ? getStatus() : STATES.FREE };
-        //     sendResponse(response);
-        // }
-        // if (request.cancel) {
-        //     setStatus(STATES.CANCEL);
-        //     sendResponse({ status: getStatus(), ok: true });
-        // }
-
     });
 
     console.log("pixiv-vid-recorder.js loaded on window!");
