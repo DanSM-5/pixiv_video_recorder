@@ -10,13 +10,13 @@ body {
 .tabs {
   display: flex;
   flex-direction: row;
-    border-bottom: 1px solid var(--color-blue-theme);
-    box-shadow: 0px 2px 2px #e2e2e2;
+  border-bottom: 1px solid var(--color-blue-theme);
+  box-shadow: 0px 2px 2px #e2e2e2;
 }
 
 .tab {
   box-sizing: border-box;
-  height: 10vh;
+  height: 2rem;
   flex: 1;
   cursor: pointer;
   display: flex;
@@ -80,7 +80,6 @@ body {
   margin: 0;
 }
 #error-area {
-  display: none;
   margin-top: 20px;
 }
 #spinner {
@@ -89,4 +88,10 @@ body {
 }
 .hide {
   display: none;
+}
+.red-border {
+  border-color: red;
+}
+#btn-record .label {
+  text-transform: capitalize;
 }
