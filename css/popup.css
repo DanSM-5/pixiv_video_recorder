@@ -43,6 +43,19 @@ body {
   margin: 10px 0;
 }
 
+.checkbox-area {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.checkbox-input {
+  margin: 2px 0;
+  margin: 2px 0;
+  display: flex;
+  justify-content: space-between;
+}
+
 .btn {
   min-width: 100px;
   min-height: 45px;
