@@ -174,30 +174,42 @@
      * @description set the status in the window object
      * @param {String} status the status to save 
      */  
-    const setStatus = status => window._state.currentStatus = status;
+    const setStatus = status => getState().currentStatus = status;
 
-    const setMetadata = metadata => window._state.assetMetadata = metadata;
+    const setMetadata = metadata => getState().assetMetadata = metadata;
 
-    const setZipPlayer = zipPlayer => window._state.zipPlayer = zipPlayer;
+    const setZipPlayer = zipPlayer => getState().zipPlayer = zipPlayer;
 
-    const setPreviousAssetId = id => window._state.id = id;
-    const getPreviousAssetId = () => window._state.id;
+    const setMaxResolution = maxResolution => getState().maxResolution = maxResolution;
 
+    const setPreviousAssetId = id => getState().id = id;
+    const getPreviousAssetId = () => getState().id;
+
+    const getState = () => window._state;
     /**
      * @name getStatus
      * @description gets the current status saved in the window object
      */
-    const getStatus = () => window._state.currentStatus;
+    const getStatus = () => getState().currentStatus;
 
     const getCancelPredicate = () => () => getStatus() === STATES.CANCEL
 
-    const getZipPlayer = () => window._state?.zipPlayer ?? null;
+    const getZipPlayer = () => getState()?.zipPlayer ?? null;
+
+    const getMaxResolution = () => getState().maxResolution;
 
     const getAssetId = () => location.href.match(/\d+$/)[0];
 
-    const getConfig = ({ canvas, metadata, loop = false, debug = false, autoStart = false }) => ({
+    const getConfig = ({
+        canvas,
+        metadata,
+        maxResolution,
+        loop = false,
+        debug = false,
+        autoStart = false
+    }) => ({
         "canvas": canvas,
-        "source": metadata.originalSrc, // from content.body.originalSrc
+        "source": maxResolution ? metadata.originalSrc : metadata.src, // from content.body.originalSrc
         "metadata": metadata,
         "chunkSize":300000,
         "loop": loop,
@@ -209,26 +221,36 @@
     });
 
     const getMetadata = async () => {
-        if (window._state.assetMetadata) {
-            return window._state.assetMetadata;
+        if (getState().assetMetadata) {
+            return getState().assetMetadata;
         }
         const id = getAssetId();
         setPreviousAssetId(id);
         const data = await fetch(`https://www.pixiv.net/ajax/illust/${id}/ugoira_meta?lang=en`);
         const content = await data.json();
         const metadata = content.body;
+        if (!metadata.src) { // ensure there is a src
+            metadata.src = metadata.originalSrc;
+        }
         setMetadata(metadata);
         return metadata;
     };
 
     const createZipPlayer = async () => {
+        const maxResolution = getMaxResolution();
         const canvas = document.createElement("canvas");
         const metadata = await getMetadata();
-        const config = getConfig({ canvas, metadata });
-
+        const config = getConfig({ canvas, metadata, maxResolution });
         const zipPlayer = new ZipImagePlayer(config);
         setZipPlayer(zipPlayer);
         return zipPlayer;
+    };
+
+    const useMaxResolution = (flag) => {
+        if(getMaxResolution() !== flag) {
+            flushPlayer();
+        }
+        setMaxResolution(flag);
     };
 
     /**
@@ -300,12 +322,14 @@
 
         const onPlayError = (e) => {
             console.log("A problem happened when playing the video");
+            console.error(e);
         };
 
         /* videoElement */
         videoElement.src = sourceUrl;
         videoElement.addEventListener("canplay", () => {
-            videoElement.play().catch(onPlayError);
+            videoElement.play()
+                .catch(onPlayError);
             // to set the button correctly, it is necessary to wait until video is playing
             if (!closeButton.classList.contains("btn-close-recorded-top")) {
                 setRemoveButton(container, closeButton, videoElement);
@@ -592,23 +616,16 @@
      * @param {Number} _fps The framerate of the recording
      * @param {Boolean} _auto Start download automatically
      */
-    function init (
-        _time,
-        _name,
-        _quality = 0.9,
-        _fps,
-        _auto = false,
+    function init ({
+        time,
+        name = getAssetId(),
+        quality = 0.9,
+        fps,
+        auto = false,
         action = ACTIONS.DOWNLOAD,
-        hideCanvas = false
-    ) {
-        const time = _time;
-        const name = _name || getAssetId(); // Placed into the Mux and Write Application Name fields of the WebM header
-        const quality = _quality; // good quality 1 Best < 0.7 ok to poor
-        const fps = _fps; // I have tried all sorts of frame rates and all seem to work
-                          // Do some test to workout what your machine can handle as there
-                          // is a lot of variation between machines.
-        const auto = _auto;
-
+        hideCanvas = false,
+        maxResolution = true
+    }) {
         setStatus(STATES.WORKING);
 
         const onFinish = (success) => {
@@ -629,9 +646,11 @@
         // Validate inputs
         validateInputsForDownload({ name, quality });
         cleanUp();
+        useMaxResolution(maxResolution);
         if (getAssetId() !== getPreviousAssetId()) {
             flushPlayerData();
         }
+
 
         if (hideCanvas) {
             hidePageCanvas();
@@ -656,7 +675,11 @@
         } else {
             setTimeout(next, 0);
         }
-    }
+    };
+
+    const flushPlayer = () => {
+        setZipPlayer(null);
+    };
 
     const flushPlayerData = () => {
         setZipPlayer(null);
@@ -680,6 +703,7 @@
         assetMetadata: null,
         zipPlayer: null,
         id: null,
+        maxResolution: null,
     };
     
     window.startRecording = ({
@@ -690,8 +714,21 @@
         auto,
         action,
         hideCanvas,
+        maxResolution
     }) => {
-        init(getNumber(time), name, getNumber(quality), getNumber(fps), auto, action, hideCanvas);
+        const _time = getNumber(time);
+        const _quality = getNumber(quality);
+        const _fps = getNumber(fps);
+        init({
+            time: _time,
+            name,
+            quality: _quality,
+            fps: _fps,
+            auto,
+            action,
+            hideCanvas,
+            maxResolution
+        });
     };
 
         
