@@ -399,6 +399,7 @@ const execRecorder = () => {
     
     const auto = getElement("#autoInput").checked;
     const hideCanvas = getElement("#hideCanvasInput").checked;
+    const maxResolution = getElement("#maxResolutionInput").checked;
     const action = getActiveTab().dataset.action;
     const [ time, name, quality, fps ] = inputValues;
     let validateInputsArray;
@@ -407,11 +408,11 @@ const execRecorder = () => {
     switch (action) {
       case ACTIONS.DOWNLOAD:
         validateInputsArray = [ name, quality ];
-        config = { quality, auto, hideCanvas };
+        config = { quality, auto, hideCanvas, maxResolution };
         break;
       case ACTIONS.RECORD:
         validateInputsArray = [ time, name, quality, fps ];
-        config = { time, quality, fps, auto, hideCanvas };
+        config = { time, quality, fps, auto, hideCanvas, maxResolution };
         break;
       default:
         throw `Unexpected error. No tab selected?`;
@@ -429,6 +430,7 @@ const execRecorder = () => {
         auto: ${auto},
         action: \"${action}\",
         hideCanvas: ${hideCanvas},
+        maxResolution: ${maxResolution},
       });`
     );
 
@@ -575,7 +577,8 @@ const onLoad = () => {
 
   setValidationListeners();
 
-  /* CHECK CONTENT SCRIPT STATUS */
+  /* SET COMMUNICATION */
+  setOnMessageListener();
   sendMessage({ message: MESSAGES.REQUEST_STATUS }, response => {
     if (response && response.status) {
       applyStatus(response.status);
@@ -586,46 +589,4 @@ const onLoad = () => {
 };
 
 /* ON PAGE LOAD */
-window.addEventListener("load", () => {
-  /*  */
-  getElement('#btn-record').addEventListener(
-    "click",
-    execRecorder,
-    false
-  );
-
-  getElement('#btn-cancel').addEventListener(
-    "click",
-    cancelProcess,
-    false
-  );
-
-  Array.from(document.querySelectorAll('.tab'))
-    .forEach(tab => {
-      tab.addEventListener('click', onTabClick, false);
-    });
-
-  getStoraged(STORAGE.CONFIG, function(data) {
-    setConfig(data.config);
-  });
-
-  getStoraged(STORAGE.TAB, function(data) {
-    setActiveTab(data.tab.selected);
-  });
-  
-  sendMessage({ message: MESSAGES.REQUEST_ID }, response => {
-    if (response && response.id) {
-      setConfig({ name: response.id });
-    }
-  });
-
-  setValidationListeners();
-
-  sendMessage({ message: MESSAGES.REQUEST_STATUS }, response => {
-    if (response && response.status) {
-      applyStatus(response.status);
-    } else {
-      response && console.log(response);
-    }
-  });
-}, false);
+window.addEventListener("load", onLoad, false);
