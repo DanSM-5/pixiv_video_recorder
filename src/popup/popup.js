@@ -1,3 +1,4 @@
+/* CONSTANTS */
 const MESSAGES = {
   CANCEL: "cancel",
   REQUEST_STATUS: "requestStatus",
@@ -79,6 +80,18 @@ const activeFields = {
 
 const prefixRegexp = new RegExp(`^${ERROR_PREFIX}`);
 
+/* SET BEFORE ANYTHING ELSE */
+window.onerror = (message, source, lineno, colno, error) => {
+  console.error("Unhandled error on extension. Please reload the page!");
+  console.trace();
+  message && console.error(message);
+  error && console.error(error);
+};
+
+/* UTILS */
+const getElement = (cssQuery) =>
+ document.querySelector(cssQuery);
+
 /* TABS AND ACTIONS */
 const getActiveTab = () => {
   return getElement(`.${CLASSNAMES.TAB}.${CLASSNAMES.SELECTED}`);
@@ -123,9 +136,7 @@ const disableFields = () => {
     });
 };
 
-const getElement = (cssQuery) =>
- document.querySelector(cssQuery);
-
+/* CONTENT SCRIPT COMMUNICATION */
 const execOnClient = (command) => {
   chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
     console.log("Tabs:", tabs);
@@ -137,18 +148,72 @@ const execOnClient = (command) => {
   });
 };
 
+const createStringCommand = (command) => `
+  try {
+    console.log("Message received");
+    let success;
+    ${command}
+    success = [1, true, "success", "complete"];
+  } catch (e) {
+    success = [0, false, e.desc, e.key];
+  }
+`;
+
+const sendMessage = (opts, responseCallback) => {
+  chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
+    chrome.tabs.sendMessage(tabs[0].id, opts, responseCallback);
+  });
+};
+
+const setOnMessageListener = () => {
+  chrome.runtime.onMessage.addListener((request, sender, response) => {
+    if (!request) {
+      return;
+    }
+    onMessageHandler(request.message, response)
+  });
+};
+
+const onMessageHandler = (message, response) => {
+  switch (message) {
+    case MESSAGES.CANCEL: {
+      enableRecordButton();
+      response({ok: true});
+      break;
+    }
+    case MESSAGES.SUCCESS: {
+      enableRecordButton();
+      response({ok: true});
+      break;
+    }
+    case MESSAGES.FAILURE: {
+      enableRecordButton();
+      response({ok: true});
+      break;
+    }        
+    default:
+      break;
+  }
+};
+
+/* ERROR HANDLING */
 const validateResults = (results) => {
   console.log("Results", results[0])
-  if (results[0] === undefined || results[0] === null || Object.keys(results[0]).length === 0) {
+  if (
+    results[0] === undefined ||
+    results[0] === null ||
+    typeof results[0] !== "object" ||
+    !Array.isArray(results[0])
+    ) {
     openErrorArea([
-      "> An error ocurred when processing the video :(", 
+      "> An error ocurred while processing the video", 
       "> Refresh the page or try again later"
     ]);
   }
 
   const [code, status, message, key] = results[0];
   if (!status) {
-    toggle();
+    togglerRecordButtonEnable();
     openErrorArea([message]);
     if (ERROR_NAMES[key]) {
       addErrorField(
@@ -163,30 +228,24 @@ const addError = (target, description) =>
   target.innerHTML += `<p class="error">${description}</p>`;
 
 const addErrorField = (target, error) => {
-  // target.children[2].style.display = "block";
   target.children[2].classList.remove(CLASSNAMES.HIDE);
   target.children[2].textContent = error;
-  // target.children[1].style.borderColor = "red";
   target.children[1].classList.add(CLASSNAMES.RED_BORDER);
 };
 const clearErrorField = (target) => {
-  // target.children[2].style.display = "none";
   target.children[2].classList.add(CLASSNAMES.HIDE);
   target.children[2].textContent = "";
-  // target.children[1].style.borderColor = "";
   target.children[1].classList.remove(CLASSNAMES.RED_BORDER);
 };
 
 const openErrorArea = arr => {
   const errorArea = getErrorArea();
-  // errorArea.style.display = "block";
   errorArea.classList.remove(CLASSNAMES.HIDE);
   arr.forEach(error => addError(errorArea, error));
 };
 
 const closeErrorArea = () => {
   const errorArea = getErrorArea();
-  // errorArea.style.display = "none";
   errorArea.classList.add(CLASSNAMES.HIDE);
 };
 
@@ -194,6 +253,24 @@ const getErrorArea = () => {
   const errorArea = getElement("#error-area");
   errorArea.innerHTML = null;
   return errorArea;
+};
+
+/* INPUT VALIDATION */
+const checkErrorActive = div => { 
+  const inputElement = div.children[1];
+  const errorMessage = div.children[2];
+
+  // validate only if active
+  if (inputFields[div.id].validation) { 
+    if (!errorMessage.classList.contains(CLASSNAMES.HIDE)) {
+      throw "There are errors in the form"; // stop if errors found
+    }
+    return inputElement.value === ""
+      ? `${ERROR_PREFIX}-${div.id}` // empty field should be catch as error
+      : encodeURIComponent(inputElement.value);
+  }
+
+  return null; // discard inactive inputs
 };
 
 const validateInputs = (arr) => {
@@ -217,151 +294,13 @@ const validateInputs = (arr) => {
   }
 };
 
-const createStringCommand = (command) => `
-  try {
-    console.log("Message received");
-    let success;
-    ${command}
-    success = [1, true, "success"];
-  } catch (e) {
-    success = [0, false, e.desc, e.key];
-  }
-`;
-
-const execRecorder = () => {
-  closeErrorArea();
-  toggle();
-
-  try {
-    const inputValues = Array.from(getElement("#inputs").children)
-      .map(div => { 
-        const inputElement = div.children[1];
-        const errorMessage = div.children[2];
-
-        // validate if active
-        if (inputFields[div.id].validation) { 
-          if (!errorMessage.classList.contains(CLASSNAMES.HIDE)) {
-            throw "There are errors in the form";
-          }
-          return inputElement.value === "" ? `${ERROR_PREFIX}-${div.id}` : encodeURIComponent(inputElement.value);
-        }
-
-        return null;
-      });
-    
-    const auto = getElement("#autoInput").checked;
-    const hideCanvas = getElement("#hideCanvasInput").checked;
-    const action = getActiveTab().dataset.action;
-    const [ time, name, quality, fps ] = inputValues;
-    let validateInputsArray;
-    let config;
-
-    switch (action) {
-      case ACTIONS.DOWNLOAD:
-        validateInputsArray = [ name, quality ];
-        config = { quality, auto, hideCanvas };
-        break;
-      case ACTIONS.RECORD:
-        validateInputsArray = [ time, name, quality, fps ];
-        config = { time, quality, fps, auto, hideCanvas };
-        break;
-      default:
-        break;
-    }
-  
-    validateInputs(validateInputsArray);
-    saveConfig(config);
-
-    const commandString = createStringCommand(
-      `window.startRecording({
-        ${inputFields.time.name}: ${time},
-        ${inputFields.name.name}: ${name ? `\"${name}\"` : "\"\""},
-        ${inputFields.quality.name}: ${quality},
-        ${inputFields.fps.name}: ${fps},
-        auto: ${auto},
-        action: \"${action}\",
-        hideCanvas: ${hideCanvas},
-      });`
-    );
-
-    console.log(commandString);
-    execOnClient(commandString);
-  } catch (error) {
-    toggle();
-    if (Array.isArray(error)) {
-      openErrorArea(error);
-    } else {
-      openErrorArea([error]);
-    }
-  }
-};
-
-const cancelProcess = () => {
-  sendMessage({ message: MESSAGES.CANCEL }, response => console.log("response", response));
-};
-
-const toggle = () => {
-  if (getElement('#btn-record').disabled) {
-    enable();
-  } else {
-    disable();
-  }
-};
-
-const enable = () => {
-  const recordBtn = getElement('#btn-record');
-  const cancelContainer = getElement('#btn-cancel').parentElement;
-  const hide = CLASSNAMES.HIDE;
-  recordBtn.disabled = false;
-  recordBtn.children[0].classList.add(hide); //SVG
-  recordBtn.children[1].classList.remove(hide); // Span
-  cancelContainer.classList.add(hide);
-};
-
-const disable = () => {
-  const recordBtn = getElement('#btn-record');
-  const cancelContainer = getElement('#btn-cancel').parentElement;
-  const hide = CLASSNAMES.HIDE;
-  recordBtn.disabled = true;
-  recordBtn.children[0].classList.remove(hide); // SVG
-  recordBtn.children[1].classList.add(hide); // Span
-  cancelContainer.classList.remove(hide);
-};
-
-const applyStatus = status => {
-  switch (status) {
-    case STATES.WORKING:
-      disable();
-      break;
-    case STATES.FREE:
-      enable();
-      break;
-    default: // probably no response if it just open
-      enable();
-      break;
-  };
-};
-
-const setConfig = (config) => {
-  Object.keys(config).forEach(key => {
-    const input = getElement(`#${key}Input`);
-    switch (input.type) {
-      case INPUT_TYPES.TEXT:
-        input.value = config[key];
-        break;
-      case INPUT_TYPES.CHECKBOX:
-        input.checked = config[key];
-        break;
-      default:
-        break;
-    }
-  });
-};
-
 const setValidationListeners = () =>
   Array.from(getElement("#inputs").children)
     .forEach(div =>
-      div.children[1].addEventListener("blur", (e) => setCondition(e.target), false));
+      div.children[1].addEventListener(
+        "blur",
+        (e) => setCondition(e.target), false)
+    );
 
 const setCondition = element => {
   const value = element.value;
@@ -448,6 +387,111 @@ const evaluateInRange = (min, max, reference, msgIfLess, msgIfMore) => {
   }
 };
 
+/* BUTTONS LOGIC */
+const execRecorder = () => {
+  closeErrorArea();
+  togglerRecordButtonEnable();
+
+  try {
+    const inputValues = Array
+      .from(getElement("#inputs").children)
+      .map(checkErrorActive);
+    
+    const auto = getElement("#autoInput").checked;
+    const hideCanvas = getElement("#hideCanvasInput").checked;
+    const action = getActiveTab().dataset.action;
+    const [ time, name, quality, fps ] = inputValues;
+    let validateInputsArray;
+    let config;
+
+    switch (action) {
+      case ACTIONS.DOWNLOAD:
+        validateInputsArray = [ name, quality ];
+        config = { quality, auto, hideCanvas };
+        break;
+      case ACTIONS.RECORD:
+        validateInputsArray = [ time, name, quality, fps ];
+        config = { time, quality, fps, auto, hideCanvas };
+        break;
+      default:
+        throw `Unexpected error. No tab selected?`;
+    }
+  
+    validateInputs(validateInputsArray);
+    saveConfig(config);
+
+    const commandString = createStringCommand(
+      `window.startRecording({
+        ${inputFields.time.name}: ${time},
+        ${inputFields.name.name}: ${name ? `\"${name}\"` : "\"\""},
+        ${inputFields.quality.name}: ${quality},
+        ${inputFields.fps.name}: ${fps},
+        auto: ${auto},
+        action: \"${action}\",
+        hideCanvas: ${hideCanvas},
+      });`
+    );
+
+    console.log(commandString);
+    execOnClient(commandString);
+  } catch (error) {
+    togglerRecordButtonEnable();
+    if (Array.isArray(error)) {
+      openErrorArea(error);
+    } else {
+      openErrorArea([error]);
+    }
+  }
+};
+
+const cancelProcess = () => {
+  sendMessage({ message: MESSAGES.CANCEL }, response => console.log("response", response));
+};
+
+const togglerRecordButtonEnable = (flag) => {
+  const enable = flag ?? getElement('#btn-record').disabled ? true : false;
+  if (enable) {
+    enableRecordButton();
+  } else {
+    disableRecordButton();
+  }
+};
+
+const enableRecordButton = () => {
+  const recordBtn = getElement('#btn-record');
+  const cancelContainer = getElement('#btn-cancel').parentElement;
+  const hide = CLASSNAMES.HIDE;
+  recordBtn.disabled = false;
+  recordBtn.children[0].classList.add(hide); //SVG
+  recordBtn.children[1].classList.remove(hide); // Span
+  cancelContainer.classList.add(hide);
+};
+
+const disableRecordButton = () => {
+  const recordBtn = getElement('#btn-record');
+  const cancelContainer = getElement('#btn-cancel').parentElement;
+  const hide = CLASSNAMES.HIDE;
+  recordBtn.disabled = true;
+  recordBtn.children[0].classList.remove(hide); // SVG
+  recordBtn.children[1].classList.add(hide); // Span
+  cancelContainer.classList.remove(hide);
+};
+
+const applyStatus = status => {
+  switch (status) {
+    case STATES.WORKING:
+      disableRecordButton();
+      break;
+    case STATES.FREE:
+      enableRecordButton();
+      break;
+    default: // probably no response if it just open
+      enableRecordButton();
+      break;
+  };
+};
+
+/* STORAGE CONFIGURATION */
 const mergeAndSave = (type, newContent, cb) => {
   getStoraged(type, (data) => {
     // merge saved with new to avoid losing keys
@@ -460,49 +504,90 @@ const mergeAndSave = (type, newContent, cb) => {
   });
 };
 
-/* STORAGE */
-const saveConfig = config => {
-  mergeAndSave(STORAGE.CONFIG, config, () => {
-    console.log("saved last configuration");
-  });
+const createSaveFunction = (key, cb) => {
+  return content => {
+    mergeAndSave(key, content, cb);
+  };
 };
 
-const saveTab = tab => {
-  mergeAndSave(STORAGE.TAB, tab, () => {
-    console.log("saved tab configuration");
-  });
-};
+const saveConfig = createSaveFunction(STORAGE.CONFIG, () => {
+    console.log("saved last configuration");
+});
+
+const saveTab = createSaveFunction(STORAGE.TAB, () => {
+  console.log("saved tab configuration");
+});
 
 const getStoraged = (key, cb) => {
   chrome.storage.sync.get(key, cb);
 };
 
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  if (!request) {
-    return;
-  }
-  switch (request.message) {
-    case MESSAGES.CANCEL: {
-      enable();
-      sendResponse({ok: true});
-      break;
+/* STATE MANAGEMENT */
+const setConfig = (config) => {
+  Object.keys(config).forEach(key => {
+    const input = getElement(`#${key}Input`);
+    switch (input.type) {
+      case INPUT_TYPES.TEXT:
+        input.value = config[key];
+        break;
+      case INPUT_TYPES.CHECKBOX:
+        input.checked = config[key];
+        break;
+      default:
+        break;
     }
-    case MESSAGES.SUCCESS: {
-      enable();
-      sendResponse({ok: true});
-      break;
-    }
-    case MESSAGES.FAILURE: {
-      enable();
-      sendResponse({ok: true});
-      break;
-    }        
-    default:
-      break;
-}
-});
+  });
+};
 
+const onLoad = () => {
+  /* SET LISTENERS */
+  getElement('#btn-record').addEventListener(
+    "click",
+    execRecorder,
+    false
+  );
+
+  getElement('#btn-cancel').addEventListener(
+    "click",
+    cancelProcess,
+    false
+  );
+
+  Array.from(document.querySelectorAll('.tab'))
+    .forEach(tab => {
+      tab.addEventListener('click', onTabClick, false);
+    });
+
+  /* SET DEFAULTS */
+  getStoraged(STORAGE.CONFIG, function(data) {
+    setConfig(data.config);
+  });
+
+  getStoraged(STORAGE.TAB, function(data) {
+    setActiveTab(data.tab.selected);
+  });
+
+  sendMessage({ message: MESSAGES.REQUEST_ID }, response => {
+    if (response && response.id) {
+      setConfig({ name: response.id });
+    }
+  });
+
+  setValidationListeners();
+
+  /* CHECK CONTENT SCRIPT STATUS */
+  sendMessage({ message: MESSAGES.REQUEST_STATUS }, response => {
+    if (response && response.status) {
+      applyStatus(response.status);
+    } else {
+      response && console.log(response);
+    }
+  });
+};
+
+/* ON PAGE LOAD */
 window.addEventListener("load", () => {
+  /*  */
   getElement('#btn-record').addEventListener(
     "click",
     execRecorder,
@@ -535,18 +620,12 @@ window.addEventListener("load", () => {
   });
 
   setValidationListeners();
-}, false);
 
-const sendMessage = (opts, responseCallback) => {
-  chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
-    chrome.tabs.sendMessage(tabs[0].id, opts, responseCallback);
+  sendMessage({ message: MESSAGES.REQUEST_STATUS }, response => {
+    if (response && response.status) {
+      applyStatus(response.status);
+    } else {
+      response && console.log(response);
+    }
   });
-};
-
-sendMessage({ message: MESSAGES.REQUEST_STATUS }, response => {
-  if (response && response.status) {
-    applyStatus(response.status);
-  } else {
-    response && console.log(response);
-  }
-});
+}, false);
