@@ -7,6 +7,7 @@ chrome.runtime.onInstalled.addListener(function() {
       fps: 30,
       auto: false,
       hideCanvas: true,
+      maxResolution: true,
     },
     tab: {
       selected: "download",
