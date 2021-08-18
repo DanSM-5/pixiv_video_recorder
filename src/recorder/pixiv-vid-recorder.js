@@ -40,43 +40,21 @@
 
     const sendMessage = (opts, responseCallback) => 
         chrome.runtime.sendMessage(opts, responseCallback);
-        // console.log(`Opts: `, opts, "Response: ", responseCallback);
 
     /**
      * @name cleanUp
-     * @description remove the video container if any and freeze the memory
+     * @description find all video elements and call click on its close button
      */
     const cleanUp = () => {
-        let container = document.querySelector("#vid-container");
-        if (container) {
-            let videoElement = container.querySelector("video");
-            if (videoElement) {
-                videoElement.src = "";
-                videoElement.load();
-                videoElement = null;
+        const containerArr = Array.from(document.querySelectorAll(".video-area"));
+
+        containerArr.forEach(container => {
+            const closeButton = container.querySelector(".btn-close-recorded");
+            if (closeButton) {
+                closeButton.click();
             }
-            container.innerHTML = null;
-            let parent = container.parentElement;
-            parent.removeChild(container);
-            container = null;
-        }
+        });
     };
-
-    /**
-     * @name getCanvas
-     * @description get the canvas element of the page
-     * 
-     * @param {Function} failCb function callback if there is no canvas on the page
-     */
-    const getCanvas = (failCb) => {
-        const canvasCollection = document.querySelectorAll("canvas");
-
-        if (canvasCollection.length === 0) {
-            failCb();
-        }
-
-        return canvasCollection[canvasCollection.length - 1];
-    }
 
     const hidePageCanvas = () => {
         const canvasCollection = document.querySelectorAll("canvas");
@@ -140,6 +118,7 @@
      * @param {Number} fps Must be a positive number
      */
     const validateInputsForDownload = ({ /* time, */ name, quality, /* fps */}) => {
+        // TODO: Update validation or remove it
         // if (isNaN(time) || typeof time !== "number") {
         //     throw { desc: "Invalid value for time", key: "time" };
         // }
@@ -185,7 +164,24 @@
     const setPreviousAssetId = id => getState().id = id;
     const getPreviousAssetId = () => getState().id;
 
-    const getState = () => window._state;
+    // State should only be accessible throw getState
+    const getState = (() => {
+        const referenceInWindow = true;
+        const state = {
+            currentStatus: STATES.FREE,
+            assetMetadata: null,
+            zipPlayer: null,
+            id: null,
+            maxResolution: null,
+        };
+
+        if (referenceInWindow) {
+            window._state = state;
+        }
+
+        return () => state;
+    })();
+
     /**
      * @name getStatus
      * @description gets the current status saved in the window object
@@ -209,15 +205,13 @@
         autoStart = false
     }) => ({
         "canvas": canvas,
-        "source": maxResolution ? metadata.originalSrc : metadata.src, // from content.body.originalSrc
+        "source": maxResolution ? metadata.originalSrc : metadata.src,
         "metadata": metadata,
         "chunkSize":300000,
         "loop": loop,
         "autoStart": autoStart,
         "debug": debug,
         "autosize": true,
-        // "videoWriter": videoWriter,
-        // onEnd: onEnd,
     });
 
     const getMetadata = async () => {
@@ -236,10 +230,14 @@
         return metadata;
     };
 
-    const createZipPlayer = async () => {
+    const createZipPlayer = async (cacelCb) => {
         const maxResolution = getMaxResolution();
         const canvas = document.createElement("canvas");
         const metadata = await getMetadata();
+        if (getStatus() === STATES.CANCEL) {
+            cacelCb();
+            return;
+        }
         const config = getConfig({ canvas, metadata, maxResolution });
         const zipPlayer = new ZipImagePlayer(config);
         setZipPlayer(zipPlayer);
@@ -251,19 +249,6 @@
             flushPlayer();
         }
         setMaxResolution(flag);
-    };
-
-    /**
-     * @name setRemoveButton
-     * @description Add remove button to container to clean it up
-     * @param {HTMLElement<div>} container 
-     * @param {HTMLElement<button>} button 
-     * @param {HTMLElement<video>} video 
-     */
-    const setRemoveButton = (container, button, video) => {
-        container.children[0].appendChild(button);
-        button.style.right = (((container.offsetWidth - video.videoWidth) / 2) + 10) + "px";
-        button.classList.add("btn-close-recorded-top");
     };
 
     /**
@@ -325,47 +310,65 @@
             console.error(e);
         };
 
-        /* videoElement */
-        videoElement.src = sourceUrl;
-        videoElement.addEventListener("canplay", () => {
+        const onCanPlay = () => {
             videoElement.play()
                 .catch(onPlayError);
-            // to set the button correctly, it is necessary to wait until video is playing
-            if (!closeButton.classList.contains("btn-close-recorded-top")) {
-                setRemoveButton(container, closeButton, videoElement);
-            }
-        }, false);
+        };
 
-        // loop the video
-        videoElement.addEventListener("ended", () => loopButton.children[0].checked && videoElement.play().catch(onPlayError), false);
+        const onLoopButtonClick = () => {
+            const loop = loopButton.children[0].checked;
+            videoElement.loop = loop;
+            // play video if active and video is paused
+            if (loop && videoElement.paused) {
+                videoElement.play().catch(onPlayError);
+            }
+        };
+
+        const onEnableButtonClick = () => {
+            videoElement.controls =
+                enableControlsButton.children[0].checked;
+        }
+
+        /* CLEAN UP */
+        const closeButtonListener = () => {
+            // remove listeners
+            enableControlsButton.removeEventListener("click", onEnableButtonClick, false);
+            videoElement.removeEventListener("canplay", onCanPlay, false);
+            loopButton.removeEventListener("click", onLoopButtonClick, false);
+            closeButton.removeEventListener("click", closeButtonListener, false);
+            // unreference blob
+            videoElement.src = "";
+            videoElement.load();
+            download.href = "";
+            URL.revokeObjectURL(blob);
+            blob = null;
+            // remove from DOM
+            container.replaceChildren();
+            const parent = container.parentElement;
+            parent.removeChild(container);
+        };
+
+        /* videoElement */
+        videoElement.loop = true;
+        videoElement.src = sourceUrl;
+        videoElement.addEventListener("canplay", onCanPlay, false);
 
         /* loopButton */
         loopButton.children[0].checked = true;
         loopButton.classList.add("btn-video-info-checked");
-        loopButton.addEventListener("click", () => {
-            // play video if active and video is paused
-            if (loopButton.children[0].checked && videoElement.paused) {
-                videoElement.play()
-            }
-        }, false);
+        loopButton.addEventListener("click", onLoopButtonClick, false);
 
         /* enableControlsButton */
-        enableControlsButton.addEventListener("click", () => {
-            if (enableControlsButton.children[0].checked) {
-                videoElement.controls = true;
-            } else {
-                videoElement.controls = false;
-            }
-        }, false);
+        enableControlsButton.addEventListener("click", onEnableButtonClick, false);
 
         /* closeButton */
         closeButton.textContent = "X";
-        closeButton.id = "btn-close-recorded";  
-        closeButton.addEventListener("click", cleanUp, false);  
+        closeButton.classList.add("btn-close-recorded");  
+        closeButton.addEventListener("click", closeButtonListener, false);  
         
         /* link */
         link.href = "https://ezgif.com/";
-        link.textContent = "Make GIF";
+        link.textContent = "Go ezgif.com";
         link.target = "_blank";
         link.classList.add("btn-video", "btn-video-info");
 
@@ -376,11 +379,15 @@
         download.textContent = "Download";
         
         /* container */
-        container.id = "vid-container"
-        container.innerHTML = "<div></div><div></div>";
+        container.classList.add("video-area");
+        container.innerHTML = `
+            <div class="vid-container"></div>
+            <div class="btn-video-area"></div>
+        `;
         container.children[0].appendChild(videoElement);
+        container.children[0].appendChild(closeButton);
 
-        container.children[1].classList.add("btn-video-area");
+        // container.children[1].classList.add("btn-video-area");
         container.children[1].appendChild(enableControlsButton);
         container.children[1].appendChild(loopButton);
         container.children[1].appendChild(download);
@@ -392,7 +399,7 @@
         // scroll to recording
         container.scrollIntoView({
             behavior: 'smooth'
-            });
+        });
         
         // start recording if aplicable
         if (auto) {
@@ -400,120 +407,42 @@
         }
     };
 
-    /**
-     * @name captureCanvas
-     * @description capture the frames of the canvas into a video WebM
-     * @param {Number} time time to record 
-     * @param {String} name name for headers and video file
-     * @param {Number} quality quality for canvas image. See canvas.toDataURL() for more information https://developer.mozilla.org/en-US/docs/Web/API/HTMLCanvasElement/toDataURL
-     * @param {Number} fps framerate
-     * @param {Boolean} auto flag to start automatic downloads
-     * @param {Function} onFinishCb callback for end of process
-     */
-    const captureCanvas = async (time, name, quality, fps, auto, onFinishCb) => {
-        // Verify that there is a canvas
-        // const canvas = getCanvas(() => { throw { desc: "Invalid video format", key: "format" }});
-        // object that will record the video
-        // let video = new Groover.Video(fps,quality,name);
-        const canvas = document.createElement("canvas");
-        const id = getAssetId();
-        setPreviousAssetId(id);
-        const metadata = await fetch(`https://www.pixiv.net/ajax/illust/${id}/ugoira_meta?lang=en`);
-        const content = await metadata.json();
-        const frameTime = content.body.frames[0].delay;
-
-        const video = new WebMWriter({
-            quality: quality,    // WebM image quality from 0.0 (worst) to 0.99999 (best), 1.00 (VP8L lossless) is not supported
-            fileWriter: null, // FileWriter in order to stream to a file instead of buffering to memory (optional)
-            fd: null,         // Node.js file handle to write to instead of buffering to memory (optional)
-
-            // You must supply one of:
-            frameDuration: frameTime, // Duration of frames in milliseconds
-            frameRate: null,     // Number of frames per second
-
-            transparent: false,      // True if an alpha channel should be included in the video
-            alphaQuality: undefined, // Allows you to set the quality level of the alpha channel separately.
-                                        // If not specified this defaults to the same value as `quality`.
-        }); 
-
-        //video.addFrame(,);
-
-        const config = getConfig({
-            canvas,
-            metadata: { ...content.body },
-            onEnd: () => {
-                video.complete()
-                    .then(webMBlob => {
-                        attachToDOM(webMBlob, name, auto);
-                        onFinishCb();
-                        return;
-                    })
-            },
-        });
-
-        const zipPlayer = new ZipImagePlayer(config);
-
-        // capture function works recursively 
-        // const capture = () => {
-        //     if (getStatus() === STATES.CANCEL) {
-        //         video = null;
-        //         sendMessage({ cancel: true }, () => {
-        //             setTimeout(() => setStatus(STATES.FREE), 100);
-        //         });
-        //         return;
-        //     }
-        //     if(video.timecode < time){ // recording time in miliseconds
-        //         setTimeout(capture, video.frameDelay);             
-        //     }else{
-        //         video.addFrame(canvas); // TODO: add last frame?
-        //         const blob = video.toBlob();
-        //         video = undefined; // DeReference as it is memory hungry.
-        //         attachToDOM(blob, name, auto);
-        //         onFinishCb();
-        //         return;
-        //     }
-        //     // first frame sets the video size
-        //     video.addFrame(canvas); // Add current canvas frame
-        // }
-
-        // (new Promise(r => r()))
-        //     .then(() => {
-        //         for (let i = 0; i < 30; i++) {
-        //             const frameTime = frameDelay * i;
-        //             setTimeout(capture, frameTime);
-        //         }
-        //     })
-
-
-        // setTimeout(() => {
-        //     video.addFrame(canvas); // TODO: add last frame?
-        //     const blob = video.toBlob();
-        //     video = undefined; // DeReference as it is memory hungry.
-        //     attachToDOM(blob, name, auto);
-        //     onFinishCb();
-        // }, (frameDelay * totalFrames) + frameDelay); // delay end by 1 frame more
-    }
-
-    const prepare = async zipPlayer => {
+    const prepare = async (zipPlayer, cacelCb) => {
         if (zipPlayer.isReady()) {
             return;
         }
         try {
+            zipPlayer.setCancelCheck(getCancelPredicate(), cacelCb);
             await zipPlayer.prepare();
         } catch (error) {
             zipPlayer._reset();
             console.log("Error: ", error);
-            onFinishCb(false);
-            throw "Error at preparing the player. Aborting..."
+            throw "Error at preparing the player. Aborting...";
         }
     };
 
+    /**
+     * @name downloadGif
+     * @description capture all the frame images into a video WebM
+     * @param {String} name name for the video file
+     * @param {Number} quality quality for canvas image. See canvas.toDataURL() for more information https://developer.mozilla.org/en-US/docs/Web/API/HTMLCanvasElement/toDataURL
+     * @param {Boolean} auto flag to start the download automaticaly
+     * @param {Function} onFinishCb callback for end of process
+     */
     const downloadGif = async (name, quality, auto, onFinishCb) => {
         const zipPlayer = getZipPlayer();
-        zipPlayer.setCancelCheck(getCancelPredicate());
+        let wasCancel = false;
+        const _cancelCallback = () =>{
+            wasCancel = true;
+            onFinishCb(false);
+        };
 
-        await prepare(zipPlayer);
-
+        try {
+            await prepare(zipPlayer, _cancelCallback);
+        } catch (error) {
+            return;
+        }
+        if (wasCancel) return;
         const metadata = await getMetadata();
         const frameTime = metadata.frames[0].delay;
 
@@ -531,27 +460,50 @@
                                         // If not specified this defaults to the same value as `quality`.
         });
 
+        zipPlayer.setCancelCheck(getCancelPredicate(), _cancelCallback);
         zipPlayer.setCaptureFrame((canvas, time) => video.addFrame(canvas, time));
 
         try {            
             await zipPlayer.recordGif();
+            if (wasCancel) throw "canceled";
             const webMBlob = await video.complete();
+            if (wasCancel) throw "canceled";
             attachToDOM(webMBlob, name, auto);
             onFinishCb(true);
         } catch (error) {
             zipPlayer._reset();
             console.log("Error: ", error);
-            onFinishCb(false);
         }
     };
 
+    /**
+     * @name recordGif
+     * @description capture the amount of fps until record the specified time
+     * @param {Number} time time to record 
+     * @param {String} name name for the video file
+     * @param {Number} quality quality for canvas image. See canvas.toDataURL() for more information https://developer.mozilla.org/en-US/docs/Web/API/HTMLCanvasElement/toDataURL
+     * @param {Number} fps framerate
+     * @param {Boolean} auto flag to start the download automaticaly
+     * @param {Function} onFinishCb callback for end of process
+     */
     const recordGif = async (time, name, quality, fps, auto, onFinishCb) => {
         const zipPlayer = getZipPlayer();
         const canvas = zipPlayer.getCanvas();
         const frameDelay = 1000 / fps;
         let timecode = 0;
-        zipPlayer.setCancelCheck(getCancelPredicate());
-        await prepare(zipPlayer);
+        let wasCancel = false;
+        const _cancelCallback = () =>{
+            wasCancel = true;
+            onFinishCb(false);
+        };
+        try {
+            await prepare(zipPlayer, _cancelCallback);
+        } catch (error) {
+            onFinishCb(false);
+            return;
+        }
+
+        if (wasCancel) return;
 
         const video = new WebMWriter({
             quality: quality,    // WebM image quality from 0.0 (worst) to 0.99999 (best), 1.00 (VP8L lossless) is not supported
@@ -626,6 +578,9 @@
         hideCanvas = false,
         maxResolution = true
     }) {
+        if (getStatus() === STATES.CANCEL) {
+            return;
+        }
         setStatus(STATES.WORKING);
 
         const onFinish = (success) => {
@@ -651,26 +606,41 @@
             flushPlayerData();
         }
 
-
         if (hideCanvas) {
             hidePageCanvas();
         }
 
         let next;
+        let wasCanceled = false;
+        const _cancelCallback = () => {
+            wasCanceled = true;
+        };
 
         switch (action) {
             case ACTIONS.DOWNLOAD:
-                next = () => downloadGif(name, quality, auto, onFinish);
+                next = () => {
+                    if (wasCanceled) {
+                        onFinish(false);
+                        return;
+                    }
+                    downloadGif(name, quality, auto, onFinish);
+                };
                 break;
             case ACTIONS.RECORD:
-                next = () => recordGif(time, name, quality, fps, auto, onFinish);
+                next = () => {
+                    if (wasCanceled) {
+                        onFinish(false);
+                        return;
+                    }
+                    recordGif(time, name, quality, fps, auto, onFinish);
+                }
                 break;
             default:
                 break;
         }
 
         if (!getZipPlayer()) {
-            createZipPlayer()
+            createZipPlayer(_cancelCallback)
                 .then(next);
         } else {
             setTimeout(next, 0);
@@ -678,10 +648,12 @@
     };
 
     const flushPlayer = () => {
+        getZipPlayer()?.stop?.();
         setZipPlayer(null);
     };
 
     const flushPlayerData = () => {
+        getZipPlayer()?.stop?.();
         setZipPlayer(null);
         setMetadata(null);
         setPreviousAssetId(null);
@@ -696,14 +668,6 @@
             default:
                 return null;
         }
-    };
-
-    window._state = {
-        currentStatus: STATES.FREE,
-        assetMetadata: null,
-        zipPlayer: null,
-        id: null,
-        maxResolution: null,
     };
     
     window.startRecording = ({
@@ -739,7 +703,11 @@
 
         switch (request.message) {
             case MESSAGES.CANCEL: {
-                setStatus(STATES.CANCEL);
+                const current = getStatus();
+                // can only cancel working state
+                if (current === STATES.WORKING) {
+                    setStatus(STATES.CANCEL);
+                }
                 sendResponse({ status: getStatus(), ok: true });
                 break;
             }
