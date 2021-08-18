@@ -1,6 +1,9 @@
 :root {
   --color-white: hsl(0, 0%, 100%);
   --color-blue-theme: hsl(194, 66%, 61%);
+  --color-darkblue-theme: hsl(194, 66%, 40%);
+  --color-cancel-button: hsl(0, 61%, 61%);
+  --color-cancel-button-active: hsl(0, 61%, 40%);
 }
 
 body {
@@ -76,9 +79,16 @@ body {
   background-color: var(--color-blue-theme);
 }
 
+#btn-record.btn-record-on-process{
+  background-color: var(--color-darkblue-theme);
+}
+
 #btn-cancel {
   color: var(--color-white);
-  background-color: rgb(216, 93, 93);
+  background-color: var(--color-cancel-button);
+}
+#btn-cancel.btn-cancel-on-process {
+  background-color: var(--color-cancel-button-active);
 }
 
 .btn-wrapper {
@@ -89,13 +99,12 @@ body {
   margin: 0;
 }
 .err-des{
-  display: none;
   margin: 0;
 }
 #error-area {
   margin-top: 20px;
 }
-#spinner {
+.spinner {
   width: 30px;
   height: 30px;
 }
