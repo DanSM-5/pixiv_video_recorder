@@ -178,16 +178,19 @@ const onMessageHandler = (message, response) => {
   switch (message) {
     case MESSAGES.CANCEL: {
       enableRecordButton();
+      enableRecordButton();
       response({ok: true});
       break;
     }
     case MESSAGES.SUCCESS: {
       enableRecordButton();
+      enableCancelButton();
       response({ok: true});
       break;
     }
     case MESSAGES.FAILURE: {
       enableRecordButton();
+      enableCancelButton();
       response({ok: true});
       break;
     }        
@@ -312,7 +315,7 @@ const setCondition = element => {
   try {
     switch (name) {
       case inputFields.name.name:
-        checkInputInRange(value, "string", 1, 150);
+        checkInputInRange(value, "string", 1, 151);
         break;
       case inputFields.quality.name:
         checkValidPositiveNumber(value);
@@ -364,7 +367,7 @@ const checkInputInRange = (value, type, min, max) => {
       evaluate(
         Number(value),
         `Input cannot be less than ${min}`,
-        `Input cannot be greater than ${max}`
+        `Input cannot be >= than ${max}`
       );
       break;
     case "string":
@@ -372,14 +375,14 @@ const checkInputInRange = (value, type, min, max) => {
       evaluate(
         value.length,
         `Input cannot be empty`,
-        `Input can be set up to ${max} characteres`
+        `Input can be set up to ${max - 1} characteres`
       );
       break;
   }
 };
 
 const evaluateInRange = (min, max, reference, msgIfLess, msgIfMore) => {
-  if (reference > max) {
+  if (reference >= max) {
     throw msgIfMore;
   }
   if (reference < min) {
@@ -448,6 +451,7 @@ const execRecorder = () => {
 
 const cancelProcess = () => {
   sendMessage({ message: MESSAGES.CANCEL }, response => console.log("response", response));
+  disableCancelButton();
 };
 
 const togglerRecordButtonEnable = (flag) => {
@@ -464,6 +468,7 @@ const enableRecordButton = () => {
   const cancelContainer = getElement('#btn-cancel').parentElement;
   const hide = CLASSNAMES.HIDE;
   recordBtn.disabled = false;
+  recordBtn.classList.remove('btn-record-on-process');
   recordBtn.children[0].classList.add(hide); //SVG
   recordBtn.children[1].classList.remove(hide); // Span
   cancelContainer.classList.add(hide);
@@ -474,9 +479,28 @@ const disableRecordButton = () => {
   const cancelContainer = getElement('#btn-cancel').parentElement;
   const hide = CLASSNAMES.HIDE;
   recordBtn.disabled = true;
+  recordBtn.classList.add('btn-record-on-process');
   recordBtn.children[0].classList.remove(hide); // SVG
   recordBtn.children[1].classList.add(hide); // Span
   cancelContainer.classList.remove(hide);
+};
+
+const enableCancelButton = () => {
+  const cancelBtn = getElement('#btn-cancel');
+  const hide = CLASSNAMES.HIDE;
+  cancelBtn.disabled = false;
+  cancelBtn.classList.remove('btn-cancel-on-process');
+  cancelBtn.children[0].classList.add(hide); //SVG
+  cancelBtn.children[1].classList.remove(hide); // Span
+};
+
+const disableCancelButton = () => {
+  const cancelBtn = getElement('#btn-cancel');
+  const hide = CLASSNAMES.HIDE;
+  cancelBtn.disabled = true;
+  cancelBtn.classList.add('btn-cancel-on-process');
+  cancelBtn.children[0].classList.remove(hide); // SVG
+  cancelBtn.children[1].classList.add(hide); // Span
 };
 
 const applyStatus = status => {
