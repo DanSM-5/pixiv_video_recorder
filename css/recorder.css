@@ -7,7 +7,12 @@
   --color-info-hover: hsla(188, 78%, 41%, 0.5);
 }
 
-#vid-container {
+.vid-container {
+  width: fit-content;
+  position: relative;
+}
+
+.video-area {
   display: flex;
   position: relative;
   justify-content: center;
@@ -16,9 +21,11 @@
   padding: 10px 0;
 }
 
-#btn-close-recorded {
-  float:right;
+.btn-close-recorded {
   cursor:pointer;
+  right: 0;
+  margin-top: 20px;
+  margin-right: 20px;
   color: var(--color-white);
   border: 1px solid #AEAEAE;
   width: 40px;
@@ -31,6 +38,7 @@
 }
 
 .btn-video-no-click {
+  cursor: pointer;
   pointer-events: none;
 }
 
@@ -61,6 +69,7 @@
   background-color: var(--color-btn);
   border-color: var(--color-btn-border);
   margin: 0 10px;
+  cursor: pointer;
 }
 
 .btn-video-info-checked {
@@ -79,8 +88,4 @@
   justify-content: center;
   min-height: 60px;
   width: 80%;
-}
-
-.btn-close-recorded-top {
-  top: 20px;
 }
