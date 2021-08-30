@@ -7,6 +7,16 @@ const MESSAGES = {
   FAILURE: "failure", 
 };
 
+const EXEC_TYPES = {
+  RECORD: "record",
+  UGOIRA_PAGE: "ugoira_page",
+};
+
+const RESULT_TYPES = {
+  SUCCESS: "success",
+  FAILURE: "failure", 
+};
+
 const STATES = {
   WORKING: "working",
   FREE: "free",
@@ -136,6 +146,19 @@ const disableFields = () => {
     });
 };
 
+/* CHROME TAB DETECTION */
+const { getBrowserTab, setBrowserTab } = ((objRef) => {
+  return {
+    getBrowserTab: () => objRef.tabId,
+    setBrowserTab: tabId => {
+      if (objRef.tabId !== null) {
+        return;
+      }
+      objRef.tabId = tabId;
+    },
+  };
+})({ tabId: null });
+
 /* CONTENT SCRIPT COMMUNICATION */
 const execOnClient = (command) => {
   chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
@@ -143,32 +166,41 @@ const execOnClient = (command) => {
     chrome.tabs.executeScript(
       tabs[0].id,
       {code: command},
-      validateResults
+      validateScriptResults
     );
   });
 };
 
-const createStringCommand = (command) => `
+const createStringCommand = (command, success, failure) => `
   try {
     console.log("Message received");
     let success;
     ${command}
-    success = [1, true, "success", "complete"];
+    success = ${success};
   } catch (e) {
-    success = [0, false, e.desc, e.key];
+    success = ${failure};
   }
 `;
 
 const sendMessage = (opts, responseCallback) => {
   chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
-    chrome.tabs.sendMessage(tabs[0].id, opts, responseCallback);
+    const { id } = tabs[0];
+    setBrowserTab(id);
+    chrome.tabs.sendMessage(id, opts, responseCallback);
   });
 };
 
 const setOnMessageListener = () => {
   chrome.runtime.onMessage.addListener((request, sender, response) => {
+    const { tab: { id } } = sender;
+    if (id !== getBrowserTab()) {
+      return; // request from different window
+    }
     if (!request) {
       return;
+    }
+    if (chrome.runtime.lastError) {
+      console.log(chrome.runtime.lastError);
     }
     onMessageHandler(request.message, response)
   });
@@ -200,30 +232,76 @@ const onMessageHandler = (message, response) => {
 };
 
 /* ERROR HANDLING */
-const validateResults = (results) => {
-  console.log("Results", results[0])
+const validateScriptResults = (results) => {
+  console.log("Results: ", results[0])
   if (
     results[0] === undefined ||
     results[0] === null ||
-    typeof results[0] !== "object" ||
-    !Array.isArray(results[0])
-    ) {
+    typeof results[0] !== "object"
+  ) {
     openErrorArea([
-      "> An error ocurred while processing the video", 
-      "> Refresh the page or try again later"
+      "An error ocurred", 
+      "Refresh the page or try again later"
     ]);
+    return;
   }
 
-  const [code, status, message, key] = results[0];
-  if (!status) {
-    togglerRecordButtonEnable();
-    openErrorArea([message]);
-    if (ERROR_NAMES[key]) {
-      addErrorField(
-        getElement(`#inputs #${key}`),
-        ERROR_NAMES[key]
-      );
-    }
+  const {
+    type,
+    status,
+    error = null,
+    inputName = null,
+    inputErrDesc = null,
+  } = results[0];
+
+  switch (type) {
+    case EXEC_TYPES.RECORD:
+      validateExecRecord({
+        status,
+        error,
+        inputName,
+        inputErrDesc,
+      });
+      break;
+    case EXEC_TYPES.UGOIRA_PAGE:
+      validateExecUgoiraPage({ status, error });
+      break;
+    default:
+      return;
+  }
+};
+
+const validateExecUgoiraPage = ({ status }) => {
+  if (status) {
+    addEventListeners();
+    return;
+  }
+
+  // disable popup
+  const content = getElement(".content");
+  content.classList.add(CLASSNAMES.HIDE);
+
+  const invalidPageArea = getElement(".invalid-page");
+  invalidPageArea.classList.remove(CLASSNAMES.HIDE);
+};
+
+const validateExecRecord = ({
+  status,
+  error,
+  inputName,
+  inputErrDesc,
+}) => {
+  if (status) {
+    return;
+  }
+
+  togglerRecordButtonEnable();
+  error && openErrorArea([error]);
+  if (ERROR_NAMES[inputName]) {
+    addErrorField(
+      getElement(`#inputs #${inputName}`),
+      inputErrDesc
+    );
   }
 };
 
@@ -434,7 +512,15 @@ const execRecorder = () => {
         action: \"${action}\",
         hideCanvas: ${hideCanvas},
         maxResolution: ${maxResolution},
-      });`
+      });`,
+      `{ type: "${EXEC_TYPES.RECORD}", status: true }`,
+      `{
+        type: "${EXEC_TYPES.RECORD}",
+        status: false,
+        error: e.message,
+        inputName: e.key,
+        inputErrDesc: e.desc,
+      }`
     );
 
     console.log(commandString);
@@ -565,7 +651,23 @@ const setConfig = (config) => {
   });
 };
 
-const onLoad = () => {
+/* INITIAL CONDITION */
+const validateGifPage = () => {
+  const command = createStringCommand(
+    `
+      const canvasArr = Array.from(document.querySelectorAll('canvas'));
+      if (canvasArr.length === 0) {
+        throw { error: "No canvas" };
+      }
+    `,
+    `{ type: "${EXEC_TYPES.UGOIRA_PAGE}", status: true }`,
+    `{ type: "${EXEC_TYPES.UGOIRA_PAGE}", error: e.error, status: false }`
+  );
+
+  execOnClient(command);
+};
+
+const addEventListeners = () => {
   /* SET LISTENERS */
   getElement('#btn-record').addEventListener(
     "click",
@@ -579,10 +681,17 @@ const onLoad = () => {
     false
   );
 
-  Array.from(document.querySelectorAll('.tab'))
+  Array.from(document.querySelectorAll(`.${CLASSNAMES.TAB}`))
     .forEach(tab => {
       tab.addEventListener('click', onTabClick, false);
     });
+
+  setValidationListeners();
+};
+
+const onLoad = () => {
+  /* VALIDATE PAGE */
+  validateGifPage();
 
   /* SET DEFAULTS */
   getStoraged(STORAGE.CONFIG, function(data) {
@@ -593,16 +702,14 @@ const onLoad = () => {
     setActiveTab(data.tab.selected);
   });
 
+  /* SET COMMUNICATION */
+  setOnMessageListener();
   sendMessage({ message: MESSAGES.REQUEST_ID }, response => {
     if (response && response.id) {
       setConfig({ name: response.id });
     }
   });
 
-  setValidationListeners();
-
-  /* SET COMMUNICATION */
-  setOnMessageListener();
   sendMessage({ message: MESSAGES.REQUEST_STATUS }, response => {
     if (response && response.status) {
       applyStatus(response.status);

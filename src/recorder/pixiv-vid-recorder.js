@@ -589,6 +589,9 @@
                 if (response && response.ok) {
                     // Do cleanup jobs here if required
                 }
+                if (chrome.runtime.lastError) {
+                    console.log(chrome.runtime.lastError);
+                }
             });
             // set free status, so it can be called again
             setStatus(STATES.FREE);

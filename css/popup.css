@@ -10,6 +10,19 @@ body {
   margin: 0;
 }
 
+.invalid-page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 8px;
+  min-height: 100px;
+  width: 150px;
+}
+.description {
+  text-align: center;
+  width: 100%;
+}
+
 .tabs {
   display: flex;
   flex-direction: row;
@@ -98,7 +111,7 @@ body {
   color: red;
   margin: 0;
 }
-.err-des{
+.err-des {
   margin: 0;
 }
 #error-area {

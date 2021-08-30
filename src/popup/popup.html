@@ -5,61 +5,66 @@
     <link rel="stylesheet" href="../../css/popup.css">
   </head>
   <body>
-    <div class="tabs">
-      <div class="tab download" data-action="download">Download</div>
-      <div class="tab record" data-action="record">Record</div>
+    <div class="content">
+      <div class="tabs">
+        <div class="tab download" data-action="download">Download</div>
+        <div class="tab record" data-action="record">Record</div>
+      </div>
+      <div id="main">
+        <div id="inputs">
+          <div id="time" class="input-block">
+            <span class="description">Time (in ms): </span>
+            <input type="text" name="time" id="timeInput">
+            <p class="error err-des hide"></p>
+          </div>
+          <div id="name" class="input-block">
+            <span class="description">Name: </span>
+            <input type="text" name="name" id="nameInput">
+            <p class="error err-des hide"></p>
+          </div>
+          <div id="quality" class="input-block">
+            <span class="description">Quality (e.g. 0.9): </span>
+            <input type="text" name="quality" id="qualityInput">
+            <p class="error err-des hide"></p>
+          </div>
+          <div id="fps" class="input-block">
+            <span class="description">FPS (e.g. 30): </span>
+            <input type="text" name="fps" id="fpsInput">
+            <p class="error err-des hide"></p>
+          </div>
+        </div>
+        <div class="checkbox-area" id="checkboxArea">
+          <div id="auto" class="checkbox-input">
+            <span class="description">Download automatically </span>
+            <input type="checkbox" name="auto" id="autoInput">
+          </div>
+          <div id="hideCanvas" class="checkbox-input">
+            <span class="description">Hide Pixiv gif </span>
+            <input type="checkbox" name="hideCanvas" id="hideCanvasInput">
+          </div>
+          <div id="maxResolution" class="checkbox-input">
+            <span class="description">Use max resolution </span>
+            <input type="checkbox" name="maxResolution" id="maxResolutionInput">
+          </div>
+        </div>
+        <div class="btn-wrapper">
+          <button id="btn-record" class="btn">
+            <img src="../../images/spinner.svg" class="spinner hide" alt="spinner" />
+            <span class="label"></span>
+          </button>
+        </div>
+        <div class="btn-wrapper hide">
+          <button id="btn-cancel" class="btn">
+            <img src="../../images/spinner.svg" class="spinner hide" alt="spinner" />
+            <span>Cancel</span>
+          </button>
+        </div>
+        <div id="log-area" class="hide"></div>
+        <div id="error-area" class="hide"></div>
+      </div>
     </div>
-    <div id="main">
-      <div id="inputs">
-        <div id="time" class="input-block">
-          <span class="description">Time (in ms): </span>
-          <input type="text" name="time" id="timeInput">
-          <p class="error err-des hide"></p>
-        </div>
-        <div id="name" class="input-block">
-          <span class="description">Name: </span>
-          <input type="text" name="name" id="nameInput">
-          <p class="error err-des hide"></p>
-        </div>
-        <div id="quality" class="input-block">
-          <span class="description">Quality (e.g. 0.9): </span>
-          <input type="text" name="quality" id="qualityInput">
-          <p class="error err-des hide"></p>
-        </div>
-        <div id="fps" class="input-block">
-          <span class="description">FPS (e.g. 30): </span>
-          <input type="text" name="fps" id="fpsInput">
-          <p class="error err-des hide"></p>
-        </div>
-      </div>
-      <div class="checkbox-area" id="checkboxArea">
-        <div id="auto" class="checkbox-input">
-          <span class="description">Download automatically </span>
-          <input type="checkbox" name="auto" id="autoInput">
-        </div>
-        <div id="hideCanvas" class="checkbox-input">
-          <span class="description">Hide Pixiv gif </span>
-          <input type="checkbox" name="hideCanvas" id="hideCanvasInput">
-        </div>
-        <div id="maxResolution" class="checkbox-input">
-          <span class="description">Use max resolution </span>
-          <input type="checkbox" name="maxResolution" id="maxResolutionInput">
-        </div>
-      </div>
-      <div class="btn-wrapper">
-        <button id="btn-record" class="btn">
-          <img src="../../images/spinner.svg" class="spinner hide" alt="spinner" />
-          <span class="label"></span>
-        </button>
-      </div>
-      <div class="btn-wrapper hide">
-        <button id="btn-cancel" class="btn">
-          <img src="../../images/spinner.svg" class="spinner hide" alt="spinner" />
-          <span>Cancel</span>
-        </button>
-      </div>
-      <div id="log-area" class="hide"></div>
-      <div id="error-area" class="hide"></div>
+    <div class="invalid-page hide">
+      <p class="description">Page does not have a compatible GIF to record</p>
     </div>
     <script src="popup.js"></script>
   </body>
